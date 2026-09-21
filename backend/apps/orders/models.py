@@ -38,6 +38,40 @@ class Order(models.Model):
     customer_name = models.CharField(max_length=160)
     customer_email = models.EmailField()
 
+    shipping_postal_code = models.CharField(
+        max_length=20,
+        default="",
+    )
+    shipping_street = models.CharField(
+        max_length=180,
+        default="",
+    )
+    shipping_number = models.CharField(
+        max_length=30,
+        default="",
+    )
+    shipping_complement = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+    )
+    shipping_neighborhood = models.CharField(
+        max_length=120,
+        default="",
+    )
+    shipping_city = models.CharField(
+        max_length=120,
+        default="",
+    )
+    shipping_state = models.CharField(
+        max_length=80,
+        default="",
+    )
+    shipping_country = models.CharField(
+        max_length=80,
+        default="BR",
+    )
+
     status = models.CharField(
         max_length=20,
         choices=Status.choices,

@@ -34,6 +34,14 @@ def convert_cart_to_order(
     cart,
     customer_name,
     customer_email,
+    shipping_postal_code,
+    shipping_street,
+    shipping_number,
+    shipping_neighborhood,
+    shipping_city,
+    shipping_state,
+    shipping_complement="",
+    shipping_country="BR",
     shipping_amount=Decimal("0.00"),
     discount_amount=Decimal("0.00"),
     notes="",
@@ -43,6 +51,32 @@ def convert_cart_to_order(
 
     if not customer_email or not customer_email.strip():
         raise OrderConversionError("Customer email is required.")
+
+    shipping_fields = {
+        "Shipping postal code": shipping_postal_code,
+        "Shipping street": shipping_street,
+        "Shipping number": shipping_number,
+        "Shipping neighborhood": shipping_neighborhood,
+        "Shipping city": shipping_city,
+        "Shipping state": shipping_state,
+        "Shipping country": shipping_country,
+    }
+
+    cleaned_shipping = {}
+
+    for field_name, value in shipping_fields.items():
+        if value is None or not str(value).strip():
+            raise OrderConversionError(
+                f"{field_name} is required."
+            )
+
+        cleaned_shipping[field_name] = str(value).strip()
+
+    shipping_complement = (
+        str(shipping_complement).strip()
+        if shipping_complement is not None
+        else ""
+    )
 
     shipping_amount = _to_decimal(
         shipping_amount,
@@ -157,6 +191,14 @@ def convert_cart_to_order(
         user_id=locked_cart.user_id,
         customer_name=customer_name.strip(),
         customer_email=customer_email.strip(),
+        shipping_postal_code=cleaned_shipping["Shipping postal code"],
+        shipping_street=cleaned_shipping["Shipping street"],
+        shipping_number=cleaned_shipping["Shipping number"],
+        shipping_complement=shipping_complement,
+        shipping_neighborhood=cleaned_shipping["Shipping neighborhood"],
+        shipping_city=cleaned_shipping["Shipping city"],
+        shipping_state=cleaned_shipping["Shipping state"],
+        shipping_country=cleaned_shipping["Shipping country"],
         subtotal=subtotal,
         shipping_amount=shipping_amount,
         discount_amount=discount_amount,

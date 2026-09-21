@@ -64,6 +64,14 @@ class ConvertCartToOrderTests(TestCase):
             "cart": self.cart,
             "customer_name": "Cliente Teste",
             "customer_email": "customer@example.com",
+            "shipping_postal_code": "17230-000",
+            "shipping_street": "Rua Teste",
+            "shipping_number": "123",
+            "shipping_complement": "Apto 4",
+            "shipping_neighborhood": "Centro",
+            "shipping_city": "Itapui",
+            "shipping_state": "SP",
+            "shipping_country": "BR",
             "shipping_amount": Decimal("15.00"),
             "discount_amount": Decimal("10.00"),
             "notes": "Pedido de teste",
@@ -81,6 +89,15 @@ class ConvertCartToOrderTests(TestCase):
         self.assertEqual(order.user, self.user)
         self.assertEqual(order.customer_name, "Cliente Teste")
         self.assertEqual(order.customer_email, "customer@example.com")
+
+        self.assertEqual(order.shipping_postal_code, "17230-000")
+        self.assertEqual(order.shipping_street, "Rua Teste")
+        self.assertEqual(order.shipping_number, "123")
+        self.assertEqual(order.shipping_complement, "Apto 4")
+        self.assertEqual(order.shipping_neighborhood, "Centro")
+        self.assertEqual(order.shipping_city, "Itapui")
+        self.assertEqual(order.shipping_state, "SP")
+        self.assertEqual(order.shipping_country, "BR")
 
         self.assertEqual(order.subtotal, Decimal("179.80"))
         self.assertEqual(order.shipping_amount, Decimal("15.00"))
@@ -141,12 +158,34 @@ class ConvertCartToOrderTests(TestCase):
                 cart=empty_cart,
                 customer_name="Cliente Teste",
                 customer_email="customer@example.com",
+                shipping_postal_code="17230-000",
+                shipping_street="Rua Teste",
+                shipping_number="123",
+                shipping_neighborhood="Centro",
+                shipping_city="Itapui",
+                shipping_state="SP",
             )
 
         self.assertEqual(Order.objects.count(), 0)
 
         empty_cart.refresh_from_db()
         self.assertEqual(empty_cart.status, Cart.Status.ACTIVE)
+
+    def test_required_shipping_address_blocks_conversion(self):
+        with self.assertRaisesMessage(
+            OrderConversionError,
+            "Shipping city is required.",
+        ):
+            self.convert_cart(shipping_city="")
+
+        self.assertEqual(Order.objects.count(), 0)
+        self.assertEqual(OrderItem.objects.count(), 0)
+
+        self.variant.refresh_from_db()
+        self.cart.refresh_from_db()
+
+        self.assertEqual(self.variant.stock_quantity, 10)
+        self.assertEqual(self.cart.status, Cart.Status.ACTIVE)
 
     def test_insufficient_stock_rolls_back_conversion(self):
         self.variant.stock_quantity = 1

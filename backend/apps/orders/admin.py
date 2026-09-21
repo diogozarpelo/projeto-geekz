@@ -54,11 +54,77 @@ class OrderAdmin(admin.ModelAdmin):
         "customer_name",
         "customer_email",
         "user__email",
+        "shipping_postal_code",
+        "shipping_street",
+        "shipping_neighborhood",
+        "shipping_city",
+        "shipping_state",
         "items__sku",
         "items__product_name",
     )
     ordering = ("-created_at",)
     raw_id_fields = ("user",)
+
+    fieldsets = (
+        (
+            "Customer",
+            {
+                "fields": (
+                    "public_id",
+                    "user",
+                    "customer_name",
+                    "customer_email",
+                )
+            },
+        ),
+        (
+            "Shipping address",
+            {
+                "fields": (
+                    "shipping_postal_code",
+                    "shipping_street",
+                    "shipping_number",
+                    "shipping_complement",
+                    "shipping_neighborhood",
+                    "shipping_city",
+                    "shipping_state",
+                    "shipping_country",
+                )
+            },
+        ),
+        (
+            "Order",
+            {
+                "fields": (
+                    "status",
+                    "payment_status",
+                    "items_count_display",
+                    "notes",
+                )
+            },
+        ),
+        (
+            "Amounts",
+            {
+                "fields": (
+                    "subtotal",
+                    "shipping_amount",
+                    "discount_amount",
+                    "total_amount",
+                )
+            },
+        ),
+        (
+            "Metadata",
+            {
+                "fields": (
+                    "created_at",
+                    "updated_at",
+                )
+            },
+        ),
+    )
+
     readonly_fields = (
         "public_id",
         "created_at",

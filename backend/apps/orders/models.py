@@ -141,6 +141,89 @@ class Order(models.Model):
         return f"Order {self.public_id} - {self.customer_email}"
 
 
+class Payment(models.Model):
+    class Method(models.TextChoices):
+        PIX = "pix", "Pix"
+        CREDIT_CARD = "credit_card", "Credit card"
+
+    class Provider(models.TextChoices):
+        MERCADO_PAGO = "mercado_pago", "Mercado Pago"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        PAID = "paid", "Paid"
+        FAILED = "failed", "Failed"
+        REFUNDED = "refunded", "Refunded"
+        CANCELLED = "cancelled", "Cancelled"
+
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="payments",
+    )
+    method = models.CharField(
+        max_length=30,
+        choices=Method.choices,
+    )
+    provider = models.CharField(
+        max_length=40,
+        choices=Provider.choices,
+        default=Provider.MERCADO_PAGO,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
+    external_id = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+    )
+    paid_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    refunded_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(
+                fields=("status", "created_at"),
+                name="payment_status_created_idx",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(amount__gte=0),
+                name="payment_amount_gte_0",
+            ),
+            models.UniqueConstraint(
+                fields=("provider", "external_id"),
+                condition=~models.Q(external_id=""),
+                name="unique_provider_external_payment",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"Payment {self.id} - "
+            f"{self.order.public_id} - "
+            f"{self.status}"
+        )
+
+
 class OrderItem(models.Model):
     order = models.ForeignKey(
         Order,

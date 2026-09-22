@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Order, OrderItem
+from .models import Order, OrderItem, Payment
 
 
 class OrderItemInline(admin.TabularInline):
@@ -29,6 +29,25 @@ class OrderItemInline(admin.TabularInline):
         if not obj.pk:
             return "-"
         return obj.total_price
+
+
+class PaymentInline(admin.TabularInline):
+    model = Payment
+    extra = 0
+    fields = (
+        "method",
+        "provider",
+        "status",
+        "amount",
+        "external_id",
+        "paid_at",
+        "refunded_at",
+        "created_at",
+    )
+    readonly_fields = (
+        "created_at",
+    )
+    show_change_link = True
 
 
 @admin.register(Order)
@@ -132,13 +151,52 @@ class OrderAdmin(admin.ModelAdmin):
         "items_count_display",
     )
     date_hierarchy = "created_at"
-    inlines = (OrderItemInline,)
+    inlines = (
+        OrderItemInline,
+        PaymentInline,
+    )
 
     @admin.display(description="Items")
     def items_count_display(self, obj):
         if not obj.pk:
             return 0
         return obj.items.count()
+
+
+@admin.register(Payment)
+class PaymentAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "order",
+        "method",
+        "provider",
+        "status",
+        "amount",
+        "external_id",
+        "paid_at",
+        "created_at",
+    )
+    list_filter = (
+        "method",
+        "provider",
+        "status",
+        "created_at",
+        "paid_at",
+        "refunded_at",
+    )
+    search_fields = (
+        "external_id",
+        "order__public_id",
+        "order__customer_name",
+        "order__customer_email",
+    )
+    autocomplete_fields = ("order",)
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+    )
+    ordering = ("-created_at",)
+    date_hierarchy = "created_at"
 
 
 @admin.register(OrderItem)

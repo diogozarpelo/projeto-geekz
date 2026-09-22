@@ -6,7 +6,8 @@ from django.test import TestCase
 from apps.cart.models import Cart, CartItem
 from apps.catalog.models import Color, Product, ProductVariant, Size
 
-from .models import Order, OrderItem
+from .models import Order, OrderItem, Payment
+from .payment_services import PaymentError, create_payment_attempt
 from .services import OrderConversionError, convert_cart_to_order
 
 
@@ -224,3 +225,99 @@ class ConvertCartToOrderTests(TestCase):
         self.assertEqual(first_order.pk, Order.objects.get().pk)
         self.assertEqual(self.variant.stock_quantity, 8)
         self.assertEqual(self.cart.status, Cart.Status.CONVERTED)
+
+class PaymentAttemptTests(TestCase):
+    def setUp(self):
+        self.order = Order.objects.create(
+            customer_name="Cliente Pagamento",
+            customer_email="payment@example.com",
+            total_amount=Decimal("184.80"),
+        )
+
+    def test_create_payment_attempt_creates_pending_pix_payment(self):
+        payment = create_payment_attempt(
+            order=self.order,
+            method=Payment.Method.PIX,
+        )
+
+        self.assertEqual(Payment.objects.count(), 1)
+        self.assertEqual(payment.order, self.order)
+        self.assertEqual(payment.method, Payment.Method.PIX)
+        self.assertEqual(
+            payment.provider,
+            Payment.Provider.MERCADO_PAGO,
+        )
+        self.assertEqual(payment.status, Payment.Status.PENDING)
+        self.assertEqual(payment.amount, Decimal("184.80"))
+        self.assertEqual(payment.external_id, "")
+
+    def test_pending_payment_attempt_is_reused(self):
+        first_payment = create_payment_attempt(
+            order=self.order,
+            method=Payment.Method.PIX,
+        )
+
+        second_payment = create_payment_attempt(
+            order=self.order,
+            method=Payment.Method.PIX,
+        )
+
+        self.assertEqual(Payment.objects.count(), 1)
+        self.assertEqual(first_payment.pk, second_payment.pk)
+
+    def test_paid_order_cannot_receive_new_payment(self):
+        self.order.payment_status = Order.PaymentStatus.PAID
+        self.order.save(update_fields=("payment_status",))
+
+        with self.assertRaisesMessage(
+            PaymentError,
+            "This order is already paid.",
+        ):
+            create_payment_attempt(
+                order=self.order,
+                method=Payment.Method.PIX,
+            )
+
+        self.assertEqual(Payment.objects.count(), 0)
+
+    def test_cancelled_order_cannot_receive_payment(self):
+        self.order.status = Order.Status.CANCELLED
+        self.order.save(update_fields=("status",))
+
+        with self.assertRaisesMessage(
+            PaymentError,
+            "Cancelled orders cannot receive payments.",
+        ):
+            create_payment_attempt(
+                order=self.order,
+                method=Payment.Method.PIX,
+            )
+
+        self.assertEqual(Payment.objects.count(), 0)
+
+    def test_zero_total_order_does_not_require_payment(self):
+        self.order.total_amount = Decimal("0.00")
+        self.order.save(update_fields=("total_amount",))
+
+        with self.assertRaisesMessage(
+            PaymentError,
+            "Orders with zero total do not require payment.",
+        ):
+            create_payment_attempt(
+                order=self.order,
+                method=Payment.Method.PIX,
+            )
+
+        self.assertEqual(Payment.objects.count(), 0)
+
+    def test_invalid_payment_method_is_rejected(self):
+        with self.assertRaisesMessage(
+            PaymentError,
+            "Invalid payment method: boleto.",
+        ):
+            create_payment_attempt(
+                order=self.order,
+                method="boleto",
+            )
+
+        self.assertEqual(Payment.objects.count(), 0)

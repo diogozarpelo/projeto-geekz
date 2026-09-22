@@ -1,4 +1,5 @@
 from django.db import transaction
+from django.utils import timezone
 
 from .models import Order, Payment
 
@@ -79,3 +80,107 @@ def create_payment_attempt(
         status=Payment.Status.PENDING,
         amount=locked_order.total_amount,
     )
+
+
+@transaction.atomic
+def confirm_payment(
+    *,
+    payment,
+    external_id,
+):
+    if external_id is None or not str(external_id).strip():
+        raise PaymentError(
+            "External payment ID is required."
+        )
+
+    external_id = str(external_id).strip()
+
+    locked_payment = (
+        Payment.objects
+        .select_for_update()
+        .get(pk=payment.pk)
+    )
+
+    locked_order = (
+        Order.objects
+        .select_for_update()
+        .get(pk=locked_payment.order_id)
+    )
+
+    if locked_order.status == Order.Status.CANCELLED:
+        raise PaymentError(
+            "Cancelled orders cannot have payments confirmed."
+        )
+
+    if locked_payment.status in (
+        Payment.Status.CANCELLED,
+        Payment.Status.REFUNDED,
+        Payment.Status.FAILED,
+    ):
+        raise PaymentError(
+            f'Payment with status "{locked_payment.status}" '
+            "cannot be confirmed."
+        )
+
+    duplicated_external_id = (
+        Payment.objects
+        .filter(
+            provider=locked_payment.provider,
+            external_id=external_id,
+        )
+        .exclude(pk=locked_payment.pk)
+        .exists()
+    )
+
+    if duplicated_external_id:
+        raise PaymentError(
+            "External payment ID is already associated "
+            "with another payment."
+        )
+
+    if (
+        locked_payment.status == Payment.Status.PAID
+        and locked_payment.external_id
+        and locked_payment.external_id != external_id
+    ):
+        raise PaymentError(
+            "Paid payment cannot change its external payment ID."
+        )
+
+    payment_fields = []
+
+    if locked_payment.external_id != external_id:
+        locked_payment.external_id = external_id
+        payment_fields.append("external_id")
+
+    if locked_payment.status != Payment.Status.PAID:
+        locked_payment.status = Payment.Status.PAID
+        payment_fields.append("status")
+
+    if locked_payment.paid_at is None:
+        locked_payment.paid_at = timezone.now()
+        payment_fields.append("paid_at")
+
+    if payment_fields:
+        payment_fields.append("updated_at")
+        locked_payment.save(
+            update_fields=tuple(payment_fields)
+        )
+
+    order_fields = []
+
+    if locked_order.payment_status != Order.PaymentStatus.PAID:
+        locked_order.payment_status = Order.PaymentStatus.PAID
+        order_fields.append("payment_status")
+
+    if locked_order.status == Order.Status.PENDING:
+        locked_order.status = Order.Status.CONFIRMED
+        order_fields.append("status")
+
+    if order_fields:
+        order_fields.append("updated_at")
+        locked_order.save(
+            update_fields=tuple(order_fields)
+        )
+
+    return locked_payment

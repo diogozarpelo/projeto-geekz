@@ -7,7 +7,11 @@ from apps.cart.models import Cart, CartItem
 from apps.catalog.models import Color, Product, ProductVariant, Size
 
 from .models import Order, OrderItem, Payment
-from .payment_services import PaymentError, create_payment_attempt
+from .payment_services import (
+    PaymentError,
+    confirm_payment,
+    create_payment_attempt,
+)
 from .services import OrderConversionError, convert_cart_to_order
 
 
@@ -321,3 +325,213 @@ class PaymentAttemptTests(TestCase):
             )
 
         self.assertEqual(Payment.objects.count(), 0)
+
+class PaymentConfirmationTests(TestCase):
+    def setUp(self):
+        self.order = Order.objects.create(
+            customer_name="Cliente Confirmacao",
+            customer_email="confirmation@example.com",
+            total_amount=Decimal("149.90"),
+        )
+
+        self.payment = create_payment_attempt(
+            order=self.order,
+            method=Payment.Method.PIX,
+        )
+
+    def test_confirm_payment_marks_payment_and_order_as_paid(self):
+        payment = confirm_payment(
+            payment=self.payment,
+            external_id="MP-TEST-1001",
+        )
+
+        payment.refresh_from_db()
+        self.order.refresh_from_db()
+
+        self.assertEqual(payment.status, Payment.Status.PAID)
+        self.assertEqual(payment.external_id, "MP-TEST-1001")
+        self.assertIsNotNone(payment.paid_at)
+
+        self.assertEqual(
+            self.order.payment_status,
+            Order.PaymentStatus.PAID,
+        )
+        self.assertEqual(
+            self.order.status,
+            Order.Status.CONFIRMED,
+        )
+
+    def test_confirm_payment_is_idempotent_with_same_external_id(self):
+        first_payment = confirm_payment(
+            payment=self.payment,
+            external_id="MP-TEST-1002",
+        )
+
+        first_payment.refresh_from_db()
+        first_paid_at = first_payment.paid_at
+
+        second_payment = confirm_payment(
+            payment=self.payment,
+            external_id="MP-TEST-1002",
+        )
+
+        second_payment.refresh_from_db()
+        self.order.refresh_from_db()
+
+        self.assertEqual(first_payment.pk, second_payment.pk)
+        self.assertEqual(second_payment.status, Payment.Status.PAID)
+        self.assertEqual(
+            second_payment.external_id,
+            "MP-TEST-1002",
+        )
+        self.assertEqual(second_payment.paid_at, first_paid_at)
+        self.assertEqual(
+            self.order.payment_status,
+            Order.PaymentStatus.PAID,
+        )
+
+    def test_duplicate_external_id_is_rejected(self):
+        confirm_payment(
+            payment=self.payment,
+            external_id="MP-DUPLICATE-001",
+        )
+
+        second_order = Order.objects.create(
+            customer_name="Segundo Cliente",
+            customer_email="second@example.com",
+            total_amount=Decimal("99.90"),
+        )
+
+        second_payment = create_payment_attempt(
+            order=second_order,
+            method=Payment.Method.PIX,
+        )
+
+        with self.assertRaisesMessage(
+            PaymentError,
+            (
+                "External payment ID is already associated "
+                "with another payment."
+            ),
+        ):
+            confirm_payment(
+                payment=second_payment,
+                external_id="MP-DUPLICATE-001",
+            )
+
+        second_payment.refresh_from_db()
+        second_order.refresh_from_db()
+
+        self.assertEqual(
+            second_payment.status,
+            Payment.Status.PENDING,
+        )
+        self.assertEqual(second_payment.external_id, "")
+        self.assertEqual(
+            second_order.payment_status,
+            Order.PaymentStatus.PENDING,
+        )
+
+    def test_paid_payment_cannot_change_external_id(self):
+        confirm_payment(
+            payment=self.payment,
+            external_id="MP-ORIGINAL-001",
+        )
+
+        with self.assertRaisesMessage(
+            PaymentError,
+            (
+                "Paid payment cannot change its "
+                "external payment ID."
+            ),
+        ):
+            confirm_payment(
+                payment=self.payment,
+                external_id="MP-CHANGED-001",
+            )
+
+        self.payment.refresh_from_db()
+
+        self.assertEqual(
+            self.payment.external_id,
+            "MP-ORIGINAL-001",
+        )
+        self.assertEqual(
+            self.payment.status,
+            Payment.Status.PAID,
+        )
+
+    def test_cancelled_order_cannot_have_payment_confirmed(self):
+        self.order.status = Order.Status.CANCELLED
+        self.order.save(update_fields=("status",))
+
+        with self.assertRaisesMessage(
+            PaymentError,
+            "Cancelled orders cannot have payments confirmed.",
+        ):
+            confirm_payment(
+                payment=self.payment,
+                external_id="MP-CANCELLED-001",
+            )
+
+        self.payment.refresh_from_db()
+        self.order.refresh_from_db()
+
+        self.assertEqual(
+            self.payment.status,
+            Payment.Status.PENDING,
+        )
+        self.assertEqual(
+            self.order.payment_status,
+            Order.PaymentStatus.PENDING,
+        )
+
+    def test_invalid_payment_status_cannot_be_confirmed(self):
+        blocked_statuses = (
+            Payment.Status.FAILED,
+            Payment.Status.REFUNDED,
+            Payment.Status.CANCELLED,
+        )
+
+        for index, blocked_status in enumerate(
+            blocked_statuses,
+            start=1,
+        ):
+            with self.subTest(status=blocked_status):
+                order = Order.objects.create(
+                    customer_name=f"Cliente Bloqueado {index}",
+                    customer_email=f"blocked{index}@example.com",
+                    total_amount=Decimal("79.90"),
+                )
+
+                payment = Payment.objects.create(
+                    order=order,
+                    method=Payment.Method.PIX,
+                    provider=Payment.Provider.MERCADO_PAGO,
+                    status=blocked_status,
+                    amount=order.total_amount,
+                )
+
+                with self.assertRaisesMessage(
+                    PaymentError,
+                    (
+                        f'Payment with status "{blocked_status}" '
+                        "cannot be confirmed."
+                    ),
+                ):
+                    confirm_payment(
+                        payment=payment,
+                        external_id=f"MP-BLOCKED-{index}",
+                    )
+
+                payment.refresh_from_db()
+                order.refresh_from_db()
+
+                self.assertEqual(
+                    payment.status,
+                    blocked_status,
+                )
+                self.assertEqual(
+                    order.payment_status,
+                    Order.PaymentStatus.PENDING,
+                )

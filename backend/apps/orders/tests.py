@@ -9,8 +9,11 @@ from apps.catalog.models import Color, Product, ProductVariant, Size
 from .models import Order, OrderItem, Payment
 from .payment_services import (
     PaymentError,
+    cancel_payment,
     confirm_payment,
     create_payment_attempt,
+    fail_payment,
+    refund_payment,
 )
 from .services import OrderConversionError, convert_cart_to_order
 
@@ -535,3 +538,187 @@ class PaymentConfirmationTests(TestCase):
                     order.payment_status,
                     Order.PaymentStatus.PENDING,
                 )
+
+class PaymentLifecycleTests(TestCase):
+    def setUp(self):
+        self.order = Order.objects.create(
+            customer_name="Cliente Ciclo",
+            customer_email="lifecycle@example.com",
+            total_amount=Decimal("129.90"),
+        )
+
+        self.payment = create_payment_attempt(
+            order=self.order,
+            method=Payment.Method.PIX,
+        )
+
+    def test_fail_payment_marks_payment_and_order_as_failed(self):
+        payment = fail_payment(
+            payment=self.payment,
+        )
+
+        payment.refresh_from_db()
+        self.order.refresh_from_db()
+
+        self.assertEqual(
+            payment.status,
+            Payment.Status.FAILED,
+        )
+        self.assertEqual(
+            self.order.payment_status,
+            Order.PaymentStatus.FAILED,
+        )
+
+    def test_cancel_payment_marks_payment_as_cancelled(self):
+        payment = cancel_payment(
+            payment=self.payment,
+        )
+
+        payment.refresh_from_db()
+        self.order.refresh_from_db()
+
+        self.assertEqual(
+            payment.status,
+            Payment.Status.CANCELLED,
+        )
+        self.assertEqual(
+            self.order.payment_status,
+            Order.PaymentStatus.FAILED,
+        )
+
+    def test_new_attempt_after_failure_returns_order_to_pending(self):
+        fail_payment(
+            payment=self.payment,
+        )
+
+        self.order.refresh_from_db()
+
+        self.assertEqual(
+            self.order.payment_status,
+            Order.PaymentStatus.FAILED,
+        )
+
+        second_payment = create_payment_attempt(
+            order=self.order,
+            method=Payment.Method.PIX,
+        )
+
+        self.order.refresh_from_db()
+
+        self.assertEqual(Payment.objects.count(), 2)
+        self.assertNotEqual(
+            self.payment.pk,
+            second_payment.pk,
+        )
+        self.assertEqual(
+            second_payment.status,
+            Payment.Status.PENDING,
+        )
+        self.assertEqual(
+            self.order.payment_status,
+            Order.PaymentStatus.PENDING,
+        )
+
+    def test_failed_attempt_keeps_order_pending_when_another_is_pending(self):
+        second_payment = create_payment_attempt(
+            order=self.order,
+            method=Payment.Method.CREDIT_CARD,
+        )
+
+        fail_payment(
+            payment=self.payment,
+        )
+
+        self.payment.refresh_from_db()
+        second_payment.refresh_from_db()
+        self.order.refresh_from_db()
+
+        self.assertEqual(
+            self.payment.status,
+            Payment.Status.FAILED,
+        )
+        self.assertEqual(
+            second_payment.status,
+            Payment.Status.PENDING,
+        )
+        self.assertEqual(
+            self.order.payment_status,
+            Order.PaymentStatus.PENDING,
+        )
+
+    def test_refund_payment_marks_payment_and_order_as_refunded(self):
+        confirm_payment(
+            payment=self.payment,
+            external_id="MP-REFUND-001",
+        )
+
+        payment = refund_payment(
+            payment=self.payment,
+        )
+
+        payment.refresh_from_db()
+        self.order.refresh_from_db()
+
+        self.assertEqual(
+            payment.status,
+            Payment.Status.REFUNDED,
+        )
+        self.assertIsNotNone(
+            payment.refunded_at,
+        )
+        self.assertEqual(
+            self.order.payment_status,
+            Order.PaymentStatus.REFUNDED,
+        )
+
+    def test_refund_payment_is_idempotent(self):
+        confirm_payment(
+            payment=self.payment,
+            external_id="MP-REFUND-002",
+        )
+
+        first_refund = refund_payment(
+            payment=self.payment,
+        )
+        first_refund.refresh_from_db()
+
+        first_refunded_at = first_refund.refunded_at
+
+        second_refund = refund_payment(
+            payment=self.payment,
+        )
+        second_refund.refresh_from_db()
+
+        self.assertEqual(
+            first_refund.pk,
+            second_refund.pk,
+        )
+        self.assertEqual(
+            second_refund.status,
+            Payment.Status.REFUNDED,
+        )
+        self.assertEqual(
+            second_refund.refunded_at,
+            first_refunded_at,
+        )
+
+    def test_pending_payment_cannot_be_refunded(self):
+        with self.assertRaisesMessage(
+            PaymentError,
+            'Payment with status "pending" cannot be refunded.',
+        ):
+            refund_payment(
+                payment=self.payment,
+            )
+
+        self.payment.refresh_from_db()
+        self.order.refresh_from_db()
+
+        self.assertEqual(
+            self.payment.status,
+            Payment.Status.PENDING,
+        )
+        self.assertEqual(
+            self.order.payment_status,
+            Order.PaymentStatus.PENDING,
+        )

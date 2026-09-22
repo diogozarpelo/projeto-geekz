@@ -71,15 +71,35 @@ def create_payment_attempt(
     )
 
     if existing_payment:
+        if locked_order.payment_status != Order.PaymentStatus.PENDING:
+            locked_order.payment_status = Order.PaymentStatus.PENDING
+            locked_order.save(
+                update_fields=(
+                    "payment_status",
+                    "updated_at",
+                )
+            )
+
         return existing_payment
 
-    return Payment.objects.create(
+    payment = Payment.objects.create(
         order=locked_order,
         method=method,
         provider=provider,
         status=Payment.Status.PENDING,
         amount=locked_order.total_amount,
     )
+
+    if locked_order.payment_status != Order.PaymentStatus.PENDING:
+        locked_order.payment_status = Order.PaymentStatus.PENDING
+        locked_order.save(
+            update_fields=(
+                "payment_status",
+                "updated_at",
+            )
+        )
+
+    return payment
 
 
 @transaction.atomic
@@ -182,5 +202,142 @@ def confirm_payment(
         locked_order.save(
             update_fields=tuple(order_fields)
         )
+
+    return locked_payment
+
+
+def _sync_order_after_unsuccessful_payment(order):
+    if order.payments.filter(status=Payment.Status.PAID).exists():
+        target_status = Order.PaymentStatus.PAID
+    elif order.payments.filter(status=Payment.Status.PENDING).exists():
+        target_status = Order.PaymentStatus.PENDING
+    else:
+        target_status = Order.PaymentStatus.FAILED
+
+    if order.payment_status != target_status:
+        order.payment_status = target_status
+        order.save(
+            update_fields=(
+                "payment_status",
+                "updated_at",
+            )
+        )
+
+
+@transaction.atomic
+def fail_payment(*, payment):
+    locked_payment = (
+        Payment.objects
+        .select_for_update()
+        .get(pk=payment.pk)
+    )
+
+    locked_order = (
+        Order.objects
+        .select_for_update()
+        .get(pk=locked_payment.order_id)
+    )
+
+    if locked_payment.status == Payment.Status.FAILED:
+        return locked_payment
+
+    if locked_payment.status != Payment.Status.PENDING:
+        raise PaymentError(
+            f'Payment with status "{locked_payment.status}" '
+            "cannot be marked as failed."
+        )
+
+    locked_payment.status = Payment.Status.FAILED
+    locked_payment.save(
+        update_fields=(
+            "status",
+            "updated_at",
+        )
+    )
+
+    _sync_order_after_unsuccessful_payment(locked_order)
+
+    return locked_payment
+
+
+@transaction.atomic
+def cancel_payment(*, payment):
+    locked_payment = (
+        Payment.objects
+        .select_for_update()
+        .get(pk=payment.pk)
+    )
+
+    locked_order = (
+        Order.objects
+        .select_for_update()
+        .get(pk=locked_payment.order_id)
+    )
+
+    if locked_payment.status == Payment.Status.CANCELLED:
+        return locked_payment
+
+    if locked_payment.status != Payment.Status.PENDING:
+        raise PaymentError(
+            f'Payment with status "{locked_payment.status}" '
+            "cannot be cancelled."
+        )
+
+    locked_payment.status = Payment.Status.CANCELLED
+    locked_payment.save(
+        update_fields=(
+            "status",
+            "updated_at",
+        )
+    )
+
+    _sync_order_after_unsuccessful_payment(locked_order)
+
+    return locked_payment
+
+
+@transaction.atomic
+def refund_payment(*, payment):
+    locked_payment = (
+        Payment.objects
+        .select_for_update()
+        .get(pk=payment.pk)
+    )
+
+    locked_order = (
+        Order.objects
+        .select_for_update()
+        .get(pk=locked_payment.order_id)
+    )
+
+    if locked_payment.status == Payment.Status.REFUNDED:
+        return locked_payment
+
+    if locked_payment.status != Payment.Status.PAID:
+        raise PaymentError(
+            f'Payment with status "{locked_payment.status}" '
+            "cannot be refunded."
+        )
+
+    locked_payment.status = Payment.Status.REFUNDED
+
+    if locked_payment.refunded_at is None:
+        locked_payment.refunded_at = timezone.now()
+
+    locked_payment.save(
+        update_fields=(
+            "status",
+            "refunded_at",
+            "updated_at",
+        )
+    )
+
+    locked_order.payment_status = Order.PaymentStatus.REFUNDED
+    locked_order.save(
+        update_fields=(
+            "payment_status",
+            "updated_at",
+        )
+    )
 
     return locked_payment

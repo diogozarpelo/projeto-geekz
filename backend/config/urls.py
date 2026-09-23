@@ -23,4 +23,8 @@ urlpatterns = [
         'api/orders/',
         include('apps.orders.urls'),
     ),
+    path(
+        'api/catalog/',
+        include('apps.catalog.urls'),
+    ),
 ]

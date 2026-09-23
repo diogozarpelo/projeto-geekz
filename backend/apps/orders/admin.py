@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Order, OrderItem, Payment
+from .models import Order, OrderItem, Payment, PaymentEvent
 
 
 class OrderItemInline(admin.TabularInline):
@@ -48,6 +48,27 @@ class PaymentInline(admin.TabularInline):
         "created_at",
     )
     show_change_link = True
+
+
+class PaymentEventInline(admin.TabularInline):
+    model = PaymentEvent
+    extra = 0
+    can_delete = False
+    fields = (
+        "provider",
+        "event_id",
+        "event_type",
+        "external_payment_id",
+        "external_status",
+        "processed_at",
+        "processing_error",
+        "created_at",
+    )
+    readonly_fields = fields
+    show_change_link = True
+
+    def has_add_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(Order)
@@ -197,6 +218,101 @@ class PaymentAdmin(admin.ModelAdmin):
     )
     ordering = ("-created_at",)
     date_hierarchy = "created_at"
+    inlines = (
+        PaymentEventInline,
+    )
+
+
+@admin.register(PaymentEvent)
+class PaymentEventAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "payment",
+        "provider",
+        "event_id",
+        "event_type",
+        "external_status",
+        "external_payment_id",
+        "processed_at",
+        "created_at",
+    )
+    list_filter = (
+        "provider",
+        "external_status",
+        "event_type",
+        "processed_at",
+        "created_at",
+    )
+    search_fields = (
+        "event_id",
+        "external_payment_id",
+        "processing_error",
+        "payment__external_id",
+        "payment__order__public_id",
+        "payment__order__customer_name",
+        "payment__order__customer_email",
+    )
+    readonly_fields = (
+        "payment",
+        "provider",
+        "event_id",
+        "event_type",
+        "external_payment_id",
+        "external_status",
+        "payload",
+        "processed_at",
+        "processing_error",
+        "created_at",
+    )
+    ordering = ("-created_at",)
+    date_hierarchy = "created_at"
+
+    fieldsets = (
+        (
+            "Event",
+            {
+                "fields": (
+                    "provider",
+                    "event_id",
+                    "event_type",
+                    "external_status",
+                    "external_payment_id",
+                )
+            },
+        ),
+        (
+            "Processing",
+            {
+                "fields": (
+                    "payment",
+                    "processed_at",
+                    "processing_error",
+                )
+            },
+        ),
+        (
+            "Payload",
+            {
+                "fields": (
+                    "payload",
+                )
+            },
+        ),
+        (
+            "Metadata",
+            {
+                "fields": (
+                    "created_at",
+                )
+            },
+        ),
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(OrderItem)

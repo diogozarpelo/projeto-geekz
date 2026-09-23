@@ -224,6 +224,79 @@ class Payment(models.Model):
         )
 
 
+class PaymentEvent(models.Model):
+    payment = models.ForeignKey(
+        Payment,
+        on_delete=models.SET_NULL,
+        related_name="events",
+        null=True,
+        blank=True,
+    )
+    provider = models.CharField(
+        max_length=40,
+        choices=Payment.Provider.choices,
+        default=Payment.Provider.MERCADO_PAGO,
+    )
+    event_id = models.CharField(
+        max_length=160,
+        blank=True,
+        default="",
+    )
+    event_type = models.CharField(
+        max_length=80,
+        blank=True,
+        default="",
+    )
+    external_payment_id = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+    )
+    external_status = models.CharField(
+        max_length=50,
+    )
+    payload = models.JSONField(
+        default=dict,
+        blank=True,
+    )
+    processed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    processing_error = models.TextField(
+        blank=True,
+        default="",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(
+                fields=("external_status", "created_at"),
+                name="payment_event_status_idx",
+            ),
+            models.Index(
+                fields=("external_payment_id",),
+                name="payment_event_external_idx",
+            ),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("provider", "event_id"),
+                condition=~models.Q(event_id=""),
+                name="unique_provider_payment_event",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"Payment event {self.id} - "
+            f"{self.provider} - "
+            f"{self.external_status}"
+        )
+
+
 class OrderItem(models.Model):
     order = models.ForeignKey(
         Order,

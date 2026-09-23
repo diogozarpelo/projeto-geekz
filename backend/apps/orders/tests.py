@@ -6,7 +6,11 @@ from django.test import TestCase
 from apps.cart.models import Cart, CartItem
 from apps.catalog.models import Color, Product, ProductVariant, Size
 
-from .models import Order, OrderItem, Payment
+from .models import Order, OrderItem, Payment, PaymentEvent
+from .payment_event_services import (
+    PaymentEventError,
+    process_normalized_payment_event,
+)
 from .payment_services import (
     PaymentError,
     cancel_payment,
@@ -721,4 +725,300 @@ class PaymentLifecycleTests(TestCase):
         self.assertEqual(
             self.order.payment_status,
             Order.PaymentStatus.PENDING,
+        )
+
+class PaymentEventProcessingTests(TestCase):
+    def setUp(self):
+        self.order = Order.objects.create(
+            customer_name="Cliente Webhook",
+            customer_email="webhook@example.com",
+            total_amount=Decimal("149.90"),
+        )
+
+        self.payment = create_payment_attempt(
+            order=self.order,
+            method=Payment.Method.PIX,
+        )
+
+    def test_paid_event_confirms_payment_and_order(self):
+        event = process_normalized_payment_event(
+            payment=self.payment,
+            external_status="paid",
+            event_id="EVENT-PAID-001",
+            event_type="payment.updated",
+            external_payment_id="MP-WEBHOOK-001",
+            payload={
+                "source": "test",
+                "status": "approved",
+            },
+        )
+
+        self.payment.refresh_from_db()
+        self.order.refresh_from_db()
+        event.refresh_from_db()
+
+        self.assertEqual(
+            self.payment.status,
+            Payment.Status.PAID,
+        )
+        self.assertEqual(
+            self.payment.external_id,
+            "MP-WEBHOOK-001",
+        )
+        self.assertEqual(
+            self.order.payment_status,
+            Order.PaymentStatus.PAID,
+        )
+        self.assertEqual(
+            self.order.status,
+            Order.Status.CONFIRMED,
+        )
+        self.assertIsNotNone(
+            event.processed_at,
+        )
+        self.assertEqual(
+            event.processing_error,
+            "",
+        )
+
+    def test_processed_event_is_idempotent(self):
+        first_event = process_normalized_payment_event(
+            payment=self.payment,
+            external_status="paid",
+            event_id="EVENT-IDEMPOTENT-001",
+            external_payment_id="MP-IDEMPOTENT-001",
+        )
+
+        self.payment.refresh_from_db()
+        first_paid_at = self.payment.paid_at
+
+        second_event = process_normalized_payment_event(
+            payment=self.payment,
+            external_status="paid",
+            event_id="EVENT-IDEMPOTENT-001",
+            external_payment_id="MP-IDEMPOTENT-001",
+        )
+
+        self.payment.refresh_from_db()
+
+        self.assertEqual(
+            PaymentEvent.objects.filter(
+                event_id="EVENT-IDEMPOTENT-001",
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            first_event.pk,
+            second_event.pk,
+        )
+        self.assertEqual(
+            self.payment.paid_at,
+            first_paid_at,
+        )
+
+    def test_failed_event_marks_payment_as_failed(self):
+        event = process_normalized_payment_event(
+            payment=self.payment,
+            external_status="failed",
+            event_id="EVENT-FAILED-001",
+        )
+
+        self.payment.refresh_from_db()
+        self.order.refresh_from_db()
+
+        self.assertEqual(
+            self.payment.status,
+            Payment.Status.FAILED,
+        )
+        self.assertEqual(
+            self.order.payment_status,
+            Order.PaymentStatus.FAILED,
+        )
+        self.assertIsNotNone(
+            event.processed_at,
+        )
+
+    def test_cancelled_event_marks_payment_as_cancelled(self):
+        event = process_normalized_payment_event(
+            payment=self.payment,
+            external_status="cancelled",
+            event_id="EVENT-CANCELLED-001",
+        )
+
+        self.payment.refresh_from_db()
+        self.order.refresh_from_db()
+
+        self.assertEqual(
+            self.payment.status,
+            Payment.Status.CANCELLED,
+        )
+        self.assertEqual(
+            self.order.payment_status,
+            Order.PaymentStatus.FAILED,
+        )
+        self.assertIsNotNone(
+            event.processed_at,
+        )
+
+    def test_refunded_event_refunds_paid_payment(self):
+        confirm_payment(
+            payment=self.payment,
+            external_id="MP-REFUNDED-001",
+        )
+
+        event = process_normalized_payment_event(
+            payment=self.payment,
+            external_status="refunded",
+            event_id="EVENT-REFUNDED-001",
+            external_payment_id="MP-REFUNDED-001",
+        )
+
+        self.payment.refresh_from_db()
+        self.order.refresh_from_db()
+
+        self.assertEqual(
+            self.payment.status,
+            Payment.Status.REFUNDED,
+        )
+        self.assertIsNotNone(
+            self.payment.refunded_at,
+        )
+        self.assertEqual(
+            self.order.payment_status,
+            Order.PaymentStatus.REFUNDED,
+        )
+        self.assertIsNotNone(
+            event.processed_at,
+        )
+
+    def test_unresolved_payment_event_is_kept_for_audit(self):
+        with self.assertRaisesMessage(
+            PaymentEventError,
+            "Payment could not be resolved.",
+        ):
+            process_normalized_payment_event(
+                external_status="paid",
+                event_id="EVENT-UNKNOWN-001",
+                external_payment_id="MP-UNKNOWN-001",
+                payload={
+                    "source": "unknown-payment-test",
+                },
+            )
+
+        event = PaymentEvent.objects.get(
+            event_id="EVENT-UNKNOWN-001",
+        )
+
+        self.assertIsNone(
+            event.payment,
+        )
+        self.assertIsNone(
+            event.processed_at,
+        )
+        self.assertEqual(
+            event.processing_error,
+            "Payment could not be resolved.",
+        )
+        self.assertEqual(
+            event.external_payment_id,
+            "MP-UNKNOWN-001",
+        )
+
+    def test_failed_event_can_be_reprocessed_after_payment_is_resolved(self):
+        with self.assertRaisesMessage(
+            PaymentEventError,
+            "Payment could not be resolved.",
+        ):
+            process_normalized_payment_event(
+                external_status="failed",
+                event_id="EVENT-RETRY-001",
+            )
+
+        event = PaymentEvent.objects.get(
+            event_id="EVENT-RETRY-001",
+        )
+
+        self.assertIsNone(
+            event.processed_at,
+        )
+        self.assertTrue(
+            event.processing_error,
+        )
+
+        retried_event = process_normalized_payment_event(
+            payment=self.payment,
+            external_status="failed",
+            event_id="EVENT-RETRY-001",
+        )
+
+        self.payment.refresh_from_db()
+        retried_event.refresh_from_db()
+
+        self.assertEqual(
+            PaymentEvent.objects.filter(
+                event_id="EVENT-RETRY-001",
+            ).count(),
+            1,
+        )
+        self.assertEqual(
+            retried_event.payment_id,
+            self.payment.pk,
+        )
+        self.assertEqual(
+            retried_event.processing_error,
+            "",
+        )
+        self.assertIsNotNone(
+            retried_event.processed_at,
+        )
+        self.assertEqual(
+            self.payment.status,
+            Payment.Status.FAILED,
+        )
+
+    def test_event_metadata_and_payload_are_persisted(self):
+        payload = {
+            "data": {
+                "id": "MP-META-001",
+            },
+            "action": "payment.updated",
+        }
+
+        event = process_normalized_payment_event(
+            payment=self.payment,
+            external_status="pending",
+            event_id="EVENT-META-001",
+            event_type="payment.updated",
+            external_payment_id="MP-META-001",
+            payload=payload,
+        )
+
+        event.refresh_from_db()
+
+        self.assertEqual(
+            event.provider,
+            Payment.Provider.MERCADO_PAGO,
+        )
+        self.assertEqual(
+            event.event_type,
+            "payment.updated",
+        )
+        self.assertEqual(
+            event.external_payment_id,
+            "MP-META-001",
+        )
+        self.assertEqual(
+            event.external_status,
+            "pending",
+        )
+        self.assertEqual(
+            event.payload,
+            payload,
+        )
+        self.assertEqual(
+            event.payment_id,
+            self.payment.pk,
+        )
+        self.assertIsNotNone(
+            event.processed_at,
         )

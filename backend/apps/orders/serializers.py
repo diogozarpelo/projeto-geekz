@@ -36,6 +36,8 @@ class PaymentSerializer(serializers.ModelSerializer):
             "status",
             "amount",
             "external_id",
+            "provider_order_id",
+            "provider_data",
             "paid_at",
             "refunded_at",
             "created_at",

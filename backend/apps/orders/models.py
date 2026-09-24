@@ -185,6 +185,20 @@ class Payment(models.Model):
         blank=True,
         default="",
     )
+    provider_order_id = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+    )
+    idempotency_key = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+    )
+    provider_data = models.JSONField(
+        default=dict,
+        blank=True,
+    )
     paid_at = models.DateTimeField(
         null=True,
         blank=True,
@@ -203,6 +217,10 @@ class Payment(models.Model):
                 fields=("status", "created_at"),
                 name="payment_status_created_idx",
             ),
+            models.Index(
+                fields=("provider_order_id",),
+                name="payment_provider_order_idx",
+            ),
         ]
         constraints = [
             models.CheckConstraint(
@@ -213,6 +231,16 @@ class Payment(models.Model):
                 fields=("provider", "external_id"),
                 condition=~models.Q(external_id=""),
                 name="unique_provider_external_payment",
+            ),
+            models.UniqueConstraint(
+                fields=("provider", "provider_order_id"),
+                condition=~models.Q(provider_order_id=""),
+                name="unique_provider_order_payment",
+            ),
+            models.UniqueConstraint(
+                fields=("idempotency_key",),
+                condition=~models.Q(idempotency_key=""),
+                name="unique_payment_idempotency_key",
             ),
         ]
 

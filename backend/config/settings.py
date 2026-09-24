@@ -157,3 +157,19 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
     ),
 }
+
+
+# Mercado Pago
+MERCADO_PAGO_ACCESS_TOKEN = env(
+    "MERCADO_PAGO_ACCESS_TOKEN",
+    default="",
+)
+MERCADO_PAGO_WEBHOOK_SECRET = env(
+    "MERCADO_PAGO_WEBHOOK_SECRET",
+    default="",
+)
+
+MERCADO_PAGO_WEBHOOK_TOLERANCE_SECONDS = env.int(
+    "MERCADO_PAGO_WEBHOOK_TOLERANCE_SECONDS",
+    default=300,
+)

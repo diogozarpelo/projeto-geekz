@@ -1,4 +1,5 @@
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -8,6 +9,7 @@ from apps.cart.models import Cart, CartItem
 from apps.catalog.models import Color, Product, ProductVariant, Size
 
 from .models import Order, Payment
+from .providers.mercado_pago import MercadoPagoError
 
 
 User = get_user_model()
@@ -242,7 +244,15 @@ class OrderAPITests(APITestCase):
             404,
         )
 
-    def test_payment_attempt_is_created_for_order(self):
+    @patch("apps.orders.views.MercadoPagoProvider")
+    def test_payment_attempt_is_created_for_order(
+        self,
+        provider_class,
+    ):
+        provider_class.return_value.create_pix_order.side_effect = (
+            lambda *, payment: payment
+        )
+
         order = self.create_order()
 
         response = self.client.post(
@@ -281,7 +291,17 @@ class OrderAPITests(APITestCase):
             1,
         )
 
-    def test_pending_payment_attempt_is_reused_by_api(self):
+        provider_class.return_value.create_pix_order.assert_called_once()
+
+    @patch("apps.orders.views.MercadoPagoProvider")
+    def test_pending_payment_attempt_is_reused_by_api(
+        self,
+        provider_class,
+    ):
+        provider_class.return_value.create_pix_order.side_effect = (
+            lambda *, payment: payment
+        )
+
         order = self.create_order()
 
         url = reverse(
@@ -323,6 +343,123 @@ class OrderAPITests(APITestCase):
                 order=order,
             ).count(),
             1,
+        )
+
+    @patch("apps.orders.views.MercadoPagoProvider")
+    def test_pix_payment_returns_provider_data(
+        self,
+        provider_class,
+    ):
+        def create_pix_order(*, payment):
+            payment.provider_order_id = "ORD-API-001"
+            payment.external_id = "PAY-API-001"
+            payment.provider_data = {
+                "order_status": "action_required",
+                "order_status_detail": "waiting_transfer",
+                "payment_status": "action_required",
+                "payment_status_detail": "waiting_transfer",
+                "ticket_url": "https://mercadopago.example/pix",
+                "qr_code": "000201010212PIXAPI",
+                "qr_code_base64": "BASE64-PIX-API",
+            }
+            payment.idempotency_key = "internal-test-key"
+            payment.save(
+                update_fields=(
+                    "provider_order_id",
+                    "external_id",
+                    "provider_data",
+                    "idempotency_key",
+                    "updated_at",
+                )
+            )
+            return payment
+
+        provider_class.return_value.create_pix_order.side_effect = (
+            create_pix_order
+        )
+
+        order = self.create_order()
+
+        response = self.client.post(
+            reverse(
+                "orders:payment-attempt",
+                kwargs={
+                    "public_id": order.public_id,
+                },
+            ),
+            {
+                "method": Payment.Method.PIX,
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+        self.assertEqual(
+            response.data["provider_order_id"],
+            "ORD-API-001",
+        )
+        self.assertEqual(
+            response.data["external_id"],
+            "PAY-API-001",
+        )
+        self.assertEqual(
+            response.data["provider_data"]["qr_code"],
+            "000201010212PIXAPI",
+        )
+        self.assertEqual(
+            response.data["provider_data"]["ticket_url"],
+            "https://mercadopago.example/pix",
+        )
+        self.assertNotIn(
+            "idempotency_key",
+            response.data,
+        )
+
+    @patch("apps.orders.views.MercadoPagoProvider")
+    def test_pix_provider_failure_returns_bad_gateway(
+        self,
+        provider_class,
+    ):
+        provider_class.return_value.create_pix_order.side_effect = (
+            MercadoPagoError(
+                "Temporary Mercado Pago failure."
+            )
+        )
+
+        order = self.create_order()
+
+        response = self.client.post(
+            reverse(
+                "orders:payment-attempt",
+                kwargs={
+                    "public_id": order.public_id,
+                },
+            ),
+            {
+                "method": Payment.Method.PIX,
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            502,
+        )
+        self.assertIn(
+            "detail",
+            response.data,
+        )
+
+        payment = Payment.objects.get(
+            order=order,
+        )
+
+        self.assertEqual(
+            payment.status,
+            Payment.Status.PENDING,
         )
 
     def test_invalid_payment_method_returns_bad_request(self):

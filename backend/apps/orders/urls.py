@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     CheckoutAPIView,
+    MercadoPagoWebhookAPIView,
     OrderDetailAPIView,
     PaymentAttemptAPIView,
 )
@@ -11,6 +12,11 @@ app_name = "orders"
 
 
 urlpatterns = [
+    path(
+        "webhooks/mercado-pago/",
+        MercadoPagoWebhookAPIView.as_view(),
+        name="mercado-pago-webhook",
+    ),
     path(
         "checkout/",
         CheckoutAPIView.as_view(),

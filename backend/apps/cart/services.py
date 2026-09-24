@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.db import transaction
 
 from apps.catalog.models import ProductVariant
@@ -49,11 +50,19 @@ def _ensure_purchasable_variant(variant):
 
 @transaction.atomic
 def get_or_create_active_cart(*, user):
+    user_model = get_user_model()
+
+    locked_user = (
+        user_model.objects
+        .select_for_update()
+        .get(pk=user.pk)
+    )
+
     cart = (
         Cart.objects
         .select_for_update()
         .filter(
-            user=user,
+            user=locked_user,
             status=Cart.Status.ACTIVE,
         )
         .first()
@@ -63,7 +72,7 @@ def get_or_create_active_cart(*, user):
         return cart
 
     return Cart.objects.create(
-        user=user,
+        user=locked_user,
         status=Cart.Status.ACTIVE,
     )
 

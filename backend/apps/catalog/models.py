@@ -1,7 +1,9 @@
 from decimal import Decimal
 
-from django.core.validators import MinValueValidator
+from django.core.validators import FileExtensionValidator, MinValueValidator
 from django.db import models
+
+from .validators import validate_product_image_size
 
 
 class Category(models.Model):
@@ -155,7 +157,21 @@ class ProductImage(models.Model):
         null=True,
         blank=True,
     )
-    image = models.ImageField(upload_to="products/%Y/%m/")
+    image = models.ImageField(
+        upload_to="products/%Y/%m/",
+        validators=(
+            FileExtensionValidator(
+                allowed_extensions=(
+                    "jpg",
+                    "jpeg",
+                    "png",
+                    "webp",
+                    "gif",
+                )
+            ),
+            validate_product_image_size,
+        ),
+    )
     alt_text = models.CharField(max_length=180, blank=True)
     sort_order = models.PositiveIntegerField(default=0)
     is_primary = models.BooleanField(default=False)

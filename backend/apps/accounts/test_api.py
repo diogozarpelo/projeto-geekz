@@ -1,6 +1,11 @@
+from datetime import timedelta
 from decimal import Decimal
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.db import IntegrityError, transaction
+from django.utils import timezone
 from django.urls import reverse
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient, APITestCase
@@ -13,6 +18,8 @@ User = get_user_model()
 
 class AccountsAPITests(APITestCase):
     def setUp(self):
+        cache.clear()
+
         self.password = "Geekz-Test-Password-2026!"
 
         self.user = User.objects.create_user(
@@ -322,6 +329,253 @@ class AccountsAPITests(APITestCase):
             Token.objects.filter(
                 user=self.user,
             ).exists()
+        )
+
+        me_response = self.client.get(
+            reverse("accounts:me")
+        )
+
+        self.assertIn(
+            me_response.status_code,
+            (401, 403),
+        )
+
+    def test_register_normalizes_email_to_lowercase(self):
+        response = self.client.post(
+            reverse("accounts:register"),
+            self.register_payload(
+                email="Mixed.Case@EXAMPLE.COM",
+            ),
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            201,
+        )
+
+        user = User.objects.get(
+            email="mixed.case@example.com",
+        )
+
+        self.assertEqual(
+            response.data["user"]["email"],
+            user.email,
+        )
+
+    def test_register_rejects_case_insensitive_duplicate_email(self):
+        response = self.client.post(
+            reverse("accounts:register"),
+            self.register_payload(
+                email="ACCOUNT-API@EXAMPLE.COM",
+            ),
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            400,
+        )
+        self.assertIn(
+            "email",
+            response.data,
+        )
+
+    def test_database_rejects_case_insensitive_duplicate_email(self):
+        duplicate = User(
+            email="ACCOUNT-API@EXAMPLE.COM",
+        )
+        duplicate.set_password(
+            "Geekz-Database-Test-2026!"
+        )
+
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                duplicate.save(
+                    force_insert=True,
+                )
+
+    def test_login_accepts_case_insensitive_email(self):
+        response = self.client.post(
+            reverse("accounts:login"),
+            {
+                "email": "ACCOUNT-API@EXAMPLE.COM",
+                "password": self.password,
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+        self.assertEqual(
+            response.data["user"]["email"],
+            self.user.email,
+        )
+
+    def test_login_rotates_existing_token(self):
+        old_token = Token.objects.create(
+            user=self.user,
+        )
+
+        response = self.client.post(
+            reverse("accounts:login"),
+            {
+                "email": self.user.email,
+                "password": self.password,
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.assertNotEqual(
+            response.data["token"],
+            old_token.key,
+        )
+
+        self.assertFalse(
+            Token.objects.filter(
+                key=old_token.key,
+            ).exists()
+        )
+
+        self.assertEqual(
+            Token.objects.filter(
+                user=self.user,
+            ).count(),
+            1,
+        )
+
+    def test_expired_token_is_rejected_and_revoked(self):
+        token = Token.objects.create(
+            user=self.user,
+        )
+
+        Token.objects.filter(
+            pk=token.pk,
+        ).update(
+            created=(
+                timezone.now()
+                - timedelta(
+                    hours=(
+                        settings.AUTH_TOKEN_TTL_HOURS
+                        + 1
+                    )
+                )
+            )
+        )
+
+        self.authenticate_with_token(token)
+
+        response = self.client.get(
+            reverse("accounts:me")
+        )
+
+        self.assertEqual(
+            response.status_code,
+            401,
+        )
+
+        self.assertFalse(
+            Token.objects.filter(
+                pk=token.pk,
+            ).exists()
+        )
+
+    def test_login_is_rate_limited(self):
+        for _ in range(5):
+            response = self.client.post(
+                reverse("accounts:login"),
+                {
+                    "email": self.user.email,
+                    "password": "Wrong-Password-2026!",
+                },
+                format="json",
+            )
+
+            self.assertEqual(
+                response.status_code,
+                400,
+            )
+
+        response = self.client.post(
+            reverse("accounts:login"),
+            {
+                "email": self.user.email,
+                "password": "Wrong-Password-2026!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            429,
+        )
+
+    def test_register_is_rate_limited(self):
+        for index in range(3):
+            response = self.client.post(
+                reverse("accounts:register"),
+                self.register_payload(
+                    email=(
+                        f"rate-limit-{index}"
+                        "@example.com"
+                    ),
+                ),
+                format="json",
+            )
+
+            self.assertEqual(
+                response.status_code,
+                201,
+            )
+
+        response = self.client.post(
+            reverse("accounts:register"),
+            self.register_payload(
+                email="rate-limit-blocked@example.com",
+            ),
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            429,
+        )
+
+    def test_logout_ends_authenticated_session(self):
+        logged_in = self.client.login(
+            email=self.user.email,
+            password=self.password,
+        )
+
+        self.assertTrue(
+            logged_in,
+        )
+
+        me_response = self.client.get(
+            reverse("accounts:me")
+        )
+
+        self.assertEqual(
+            me_response.status_code,
+            200,
+        )
+
+        logout_response = self.client.post(
+            reverse("accounts:logout"),
+            {},
+            format="json",
+        )
+
+        self.assertEqual(
+            logout_response.status_code,
+            204,
         )
 
         me_response = self.client.get(

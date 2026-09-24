@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 import uuid
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from rest_framework.test import APITestCase
@@ -136,3 +137,42 @@ class CatalogMediaTests(APITestCase):
             saved_path.read_bytes(),
             GIF_BYTES,
         )
+
+    def test_product_image_rejects_unsupported_extension(self):
+        upload = SimpleUploadedFile(
+            "produto.svg",
+            b"<svg></svg>",
+            content_type="image/svg+xml",
+        )
+
+        image = ProductImage(
+            product=self.product,
+            image=upload,
+        )
+
+        with self.assertRaises(ValidationError):
+            image.full_clean()
+
+    def test_product_image_rejects_file_above_size_limit(self):
+        upload = SimpleUploadedFile(
+            "produto-grande.gif",
+            GIF_BYTES,
+            content_type="image/gif",
+        )
+
+        original_size = settings.PRODUCT_IMAGE_MAX_BYTES
+
+        try:
+            settings.PRODUCT_IMAGE_MAX_BYTES = (
+                len(GIF_BYTES) - 1
+            )
+
+            image = ProductImage(
+                product=self.product,
+                image=upload,
+            )
+
+            with self.assertRaises(ValidationError):
+                image.full_clean()
+        finally:
+            settings.PRODUCT_IMAGE_MAX_BYTES = original_size

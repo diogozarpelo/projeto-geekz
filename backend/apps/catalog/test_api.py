@@ -192,7 +192,7 @@ class CatalogAPITests(APITestCase):
 
         slugs = {
             item["slug"]
-            for item in response.data
+            for item in response.data["results"]
         }
 
         self.assertIn(
@@ -310,7 +310,7 @@ class CatalogAPITests(APITestCase):
 
         slugs = [
             item["slug"]
-            for item in response.data
+            for item in response.data["results"]
         ]
 
         self.assertEqual(
@@ -333,7 +333,7 @@ class CatalogAPITests(APITestCase):
 
         slugs = {
             item["slug"]
-            for item in response.data
+            for item in response.data["results"]
         }
 
         self.assertEqual(
@@ -354,11 +354,11 @@ class CatalogAPITests(APITestCase):
             200,
         )
         self.assertEqual(
-            len(response.data),
+            len(response.data["results"]),
             1,
         )
         self.assertEqual(
-            response.data[0]["slug"],
+            response.data["results"][0]["slug"],
             self.featured_product.slug,
         )
 
@@ -377,7 +377,7 @@ class CatalogAPITests(APITestCase):
 
         slugs = {
             item["slug"]
-            for item in response.data
+            for item in response.data["results"]
         }
 
         self.assertEqual(
@@ -400,7 +400,7 @@ class CatalogAPITests(APITestCase):
 
         slugs = {
             item["slug"]
-            for item in response.data
+            for item in response.data["results"]
         }
 
         self.assertEqual(
@@ -423,4 +423,28 @@ class CatalogAPITests(APITestCase):
         self.assertIn(
             "featured",
             response.data,
+        )
+
+    def test_product_list_is_paginated(self):
+        response = self.client.get(
+            reverse("catalog:product-list"),
+            {
+                "page_size": 1,
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+        self.assertEqual(
+            response.data["count"],
+            2,
+        )
+        self.assertEqual(
+            len(response.data["results"]),
+            1,
+        )
+        self.assertIsNotNone(
+            response.data["next"],
         )

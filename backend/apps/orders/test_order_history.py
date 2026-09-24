@@ -83,15 +83,15 @@ class OrderHistoryAPITests(APITestCase):
             200,
         )
         self.assertEqual(
-            len(response.data),
+            len(response.data["results"]),
             1,
         )
         self.assertEqual(
-            response.data[0]["public_id"],
+            response.data["results"][0]["public_id"],
             str(own_order.public_id),
         )
         self.assertEqual(
-            response.data[0]["customer_name"],
+            response.data["results"][0]["customer_name"],
             "Pedido do Usuario",
         )
 
@@ -118,13 +118,13 @@ class OrderHistoryAPITests(APITestCase):
             200,
         )
         self.assertEqual(
-            len(response.data),
+            len(response.data["results"]),
             2,
         )
 
         returned_ids = {
             item["public_id"]
-            for item in response.data
+            for item in response.data["results"]
         }
 
         self.assertEqual(
@@ -156,10 +156,45 @@ class OrderHistoryAPITests(APITestCase):
             200,
         )
         self.assertEqual(
-            response.data[0]["public_id"],
+            response.data["results"][0]["public_id"],
             str(second_order.public_id),
         )
         self.assertEqual(
-            response.data[1]["public_id"],
+            response.data["results"][1]["public_id"],
             str(first_order.public_id),
+        )
+
+    def test_order_history_is_paginated(self):
+        self.create_order(
+            customer_name="Pedido Um",
+        )
+        self.create_order(
+            customer_name="Pedido Dois",
+        )
+
+        self.client.force_authenticate(
+            user=self.user,
+        )
+
+        response = self.client.get(
+            self.url,
+            {
+                "page_size": 1,
+            },
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+        self.assertEqual(
+            response.data["count"],
+            2,
+        )
+        self.assertEqual(
+            len(response.data["results"]),
+            1,
+        )
+        self.assertIsNotNone(
+            response.data["next"],
         )

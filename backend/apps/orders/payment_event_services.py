@@ -153,54 +153,53 @@ def process_normalized_payment_event(
         )
 
     caught_error = None
-    processed_event = None
 
     with transaction.atomic():
-        existing_event = None
+        event_defaults = {
+            "payment": payment,
+            "event_type": event_type,
+            "external_payment_id": external_payment_id,
+            "external_status": external_status,
+            "payload": payload,
+        }
 
         if event_id:
-            existing_event = (
-                PaymentEvent.objects
-                .select_for_update()
-                .filter(
+            processed_event, _ = (
+                PaymentEvent.objects.get_or_create(
                     provider=provider,
                     event_id=event_id,
+                    defaults=event_defaults,
                 )
-                .first()
             )
 
-        if (
-            existing_event is not None
-            and existing_event.processed_at is not None
-        ):
-            return existing_event
-
-        if existing_event is None:
-            processed_event = PaymentEvent.objects.create(
-                payment=payment,
-                provider=provider,
-                event_id=event_id,
-                event_type=event_type,
-                external_payment_id=external_payment_id,
-                external_status=external_status,
-                payload=payload,
+            processed_event = (
+                PaymentEvent.objects
+                .select_for_update()
+                .get(pk=processed_event.pk)
             )
         else:
-            processed_event = existing_event
+            processed_event = PaymentEvent.objects.create(
+                provider=provider,
+                event_id="",
+                **event_defaults,
+            )
 
-            changed_fields = []
+        if processed_event.processed_at is not None:
+            return processed_event
 
-            if (
-                processed_event.payment_id is None
-                and payment is not None
-            ):
-                processed_event.payment = payment
-                changed_fields.append("payment")
+        changed_fields = []
 
-            if changed_fields:
-                processed_event.save(
-                    update_fields=tuple(changed_fields)
-                )
+        if (
+            processed_event.payment_id is None
+            and payment is not None
+        ):
+            processed_event.payment = payment
+            changed_fields.append("payment")
+
+        if changed_fields:
+            processed_event.save(
+                update_fields=tuple(changed_fields)
+            )
 
         try:
             resolved_payment = _resolve_payment(

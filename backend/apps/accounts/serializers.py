@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.db import IntegrityError
 from rest_framework import serializers
 
 
@@ -52,6 +53,18 @@ class RegisterSerializer(serializers.ModelSerializer):
             },
         }
 
+    def validate_email(self, value):
+        email = User.objects.normalize_email(value)
+
+        if User.objects.filter(
+            email__iexact=email,
+        ).exists():
+            raise serializers.ValidationError(
+                "A user with this email already exists."
+            )
+
+        return email
+
     def validate(self, attrs):
         if attrs["password"] != attrs["password_confirm"]:
             raise serializers.ValidationError(
@@ -72,10 +85,19 @@ class RegisterSerializer(serializers.ModelSerializer):
             "password"
         )
 
-        return User.objects.create_user(
-            password=password,
-            **validated_data,
-        )
+        try:
+            return User.objects.create_user(
+                password=password,
+                **validated_data,
+            )
+        except IntegrityError as exc:
+            raise serializers.ValidationError(
+                {
+                    "email": (
+                        "A user with this email already exists."
+                    )
+                }
+            ) from exc
 
 
 class LoginSerializer(serializers.Serializer):
@@ -84,6 +106,9 @@ class LoginSerializer(serializers.Serializer):
         write_only=True,
         trim_whitespace=False,
     )
+
+    def validate_email(self, value):
+        return User.objects.normalize_email(value)
 
     def validate(self, attrs):
         user = authenticate(

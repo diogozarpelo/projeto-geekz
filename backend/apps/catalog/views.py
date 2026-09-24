@@ -1,12 +1,51 @@
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from rest_framework import generics, serializers
 from rest_framework.permissions import AllowAny
 
-from .models import Category, Product
+from apps.core.pagination import CatalogPagination
+
+from .models import Category, Product, ProductVariant
 from .serializers import (
     CategorySerializer,
     ProductSerializer,
 )
+
+
+def _product_queryset():
+    active_categories = Category.objects.filter(
+        is_active=True,
+    )
+
+    active_variants = (
+        ProductVariant.objects
+        .filter(
+            is_active=True,
+            color__is_active=True,
+            size__is_active=True,
+        )
+        .select_related(
+            "color",
+            "size",
+        )
+    )
+
+    return (
+        Product.objects
+        .filter(is_active=True)
+        .prefetch_related(
+            Prefetch(
+                "categories",
+                queryset=active_categories,
+                to_attr="active_categories",
+            ),
+            Prefetch(
+                "variants",
+                queryset=active_variants,
+                to_attr="active_variants",
+            ),
+            "images__color",
+        )
+    )
 
 
 def _parse_boolean_query_param(value, field_name):
@@ -43,18 +82,10 @@ class CategoryListAPIView(generics.ListAPIView):
 class ProductListAPIView(generics.ListAPIView):
     permission_classes = (AllowAny,)
     serializer_class = ProductSerializer
+    pagination_class = CatalogPagination
 
     def get_queryset(self):
-        queryset = (
-            Product.objects
-            .filter(is_active=True)
-            .prefetch_related(
-                "categories",
-                "variants__color",
-                "variants__size",
-                "images__color",
-            )
-        )
+        queryset = _product_queryset()
 
         category = self.request.query_params.get(
             "category"
@@ -116,13 +147,4 @@ class ProductDetailAPIView(generics.RetrieveAPIView):
     serializer_class = ProductSerializer
     lookup_field = "slug"
 
-    queryset = (
-        Product.objects
-        .filter(is_active=True)
-        .prefetch_related(
-            "categories",
-            "variants__color",
-            "variants__size",
-            "images__color",
-        )
-    )
+    queryset = _product_queryset()

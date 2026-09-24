@@ -2,7 +2,7 @@ import hashlib
 
 from django.conf import settings
 from django.shortcuts import get_object_or_404
-from rest_framework import serializers, status
+from rest_framework import generics, serializers, status
 from rest_framework.exceptions import APIException
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -14,6 +14,7 @@ from mercadopago.webhook import (
 )
 
 from apps.cart.models import Cart
+from apps.core.pagination import OrderHistoryPagination
 
 from .models import Order, Payment
 from .payment_event_services import (
@@ -81,26 +82,20 @@ class CheckoutAPIView(APIView):
         )
 
 
-class OrderListAPIView(APIView):
+class OrderListAPIView(generics.ListAPIView):
     permission_classes = (IsAuthenticated,)
+    serializer_class = OrderSerializer
+    pagination_class = OrderHistoryPagination
 
-    def get(self, request):
-        orders = (
+    def get_queryset(self):
+        return (
             Order.objects
-            .filter(user=request.user)
+            .filter(user=self.request.user)
             .prefetch_related(
                 "items",
                 "payments",
             )
             .order_by("-created_at")
-        )
-
-        return Response(
-            OrderSerializer(
-                orders,
-                many=True,
-            ).data,
-            status=status.HTTP_200_OK,
         )
 
 

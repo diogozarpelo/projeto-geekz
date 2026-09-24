@@ -1,10 +1,20 @@
 from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models.functions import Lower
 
 
 class UserManager(BaseUserManager):
     use_in_migrations = True
+
+    @classmethod
+    def normalize_email(cls, email):
+        normalized = super().normalize_email(email)
+
+        if normalized is None:
+            return None
+
+        return normalized.strip().lower()
 
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -39,6 +49,14 @@ class User(AbstractUser):
     REQUIRED_FIELDS = []
 
     objects = UserManager()
+
+    class Meta(AbstractUser.Meta):
+        constraints = [
+            models.UniqueConstraint(
+                Lower("email"),
+                name="unique_user_email_ci",
+            ),
+        ]
 
     def __str__(self):
         return self.email

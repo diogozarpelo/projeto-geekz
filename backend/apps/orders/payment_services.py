@@ -53,6 +53,11 @@ def create_payment_attempt(
             "This order is already paid."
         )
 
+    if locked_order.payment_status == Order.PaymentStatus.REFUNDED:
+        raise PaymentError(
+            "Refunded orders cannot receive new payments."
+        )
+
     if locked_order.total_amount <= 0:
         raise PaymentError(
             "Orders with zero total do not require payment."
@@ -115,16 +120,19 @@ def confirm_payment(
 
     external_id = str(external_id).strip()
 
-    locked_payment = (
-        Payment.objects
-        .select_for_update()
-        .get(pk=payment.pk)
-    )
-
     locked_order = (
         Order.objects
         .select_for_update()
-        .get(pk=locked_payment.order_id)
+        .get(pk=payment.order_id)
+    )
+
+    locked_payment = (
+        Payment.objects
+        .select_for_update()
+        .get(
+            pk=payment.pk,
+            order=locked_order,
+        )
     )
 
     if locked_order.status == Order.Status.CANCELLED:
@@ -140,6 +148,21 @@ def confirm_payment(
         raise PaymentError(
             f'Payment with status "{locked_payment.status}" '
             "cannot be confirmed."
+        )
+
+    another_paid_payment = (
+        Payment.objects
+        .filter(
+            order=locked_order,
+            status=Payment.Status.PAID,
+        )
+        .exclude(pk=locked_payment.pk)
+        .exists()
+    )
+
+    if another_paid_payment:
+        raise PaymentError(
+            "This order already has another paid payment."
         )
 
     duplicated_external_id = (
@@ -226,16 +249,19 @@ def _sync_order_after_unsuccessful_payment(order):
 
 @transaction.atomic
 def fail_payment(*, payment):
-    locked_payment = (
-        Payment.objects
-        .select_for_update()
-        .get(pk=payment.pk)
-    )
-
     locked_order = (
         Order.objects
         .select_for_update()
-        .get(pk=locked_payment.order_id)
+        .get(pk=payment.order_id)
+    )
+
+    locked_payment = (
+        Payment.objects
+        .select_for_update()
+        .get(
+            pk=payment.pk,
+            order=locked_order,
+        )
     )
 
     if locked_payment.status == Payment.Status.FAILED:
@@ -262,16 +288,19 @@ def fail_payment(*, payment):
 
 @transaction.atomic
 def cancel_payment(*, payment):
-    locked_payment = (
-        Payment.objects
-        .select_for_update()
-        .get(pk=payment.pk)
-    )
-
     locked_order = (
         Order.objects
         .select_for_update()
-        .get(pk=locked_payment.order_id)
+        .get(pk=payment.order_id)
+    )
+
+    locked_payment = (
+        Payment.objects
+        .select_for_update()
+        .get(
+            pk=payment.pk,
+            order=locked_order,
+        )
     )
 
     if locked_payment.status == Payment.Status.CANCELLED:
@@ -298,16 +327,19 @@ def cancel_payment(*, payment):
 
 @transaction.atomic
 def refund_payment(*, payment):
-    locked_payment = (
-        Payment.objects
-        .select_for_update()
-        .get(pk=payment.pk)
-    )
-
     locked_order = (
         Order.objects
         .select_for_update()
-        .get(pk=locked_payment.order_id)
+        .get(pk=payment.order_id)
+    )
+
+    locked_payment = (
+        Payment.objects
+        .select_for_update()
+        .get(
+            pk=payment.pk,
+            order=locked_order,
+        )
     )
 
     if locked_payment.status == Payment.Status.REFUNDED:

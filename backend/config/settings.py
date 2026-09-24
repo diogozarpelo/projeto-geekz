@@ -36,6 +36,38 @@ DEBUG = env.bool("DJANGO_DEBUG")
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS")
 
 
+# Security
+SECURE_SSL_REDIRECT = env.bool(
+    "DJANGO_SECURE_SSL_REDIRECT",
+    default=not DEBUG,
+)
+
+SESSION_COOKIE_SECURE = env.bool(
+    "DJANGO_SESSION_COOKIE_SECURE",
+    default=not DEBUG,
+)
+
+CSRF_COOKIE_SECURE = env.bool(
+    "DJANGO_CSRF_COOKIE_SECURE",
+    default=not DEBUG,
+)
+
+SECURE_HSTS_SECONDS = env.int(
+    "DJANGO_SECURE_HSTS_SECONDS",
+    default=0,
+)
+
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env.bool(
+    "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS",
+    default=False,
+)
+
+SECURE_HSTS_PRELOAD = env.bool(
+    "DJANGO_SECURE_HSTS_PRELOAD",
+    default=False,
+)
+
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -144,21 +176,95 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
 
+MAILER_BACKEND = env(
+    "DJANGO_MAILER_BACKEND",
+    default=(
+        "django.core.mail.backends.console.EmailBackend"
+        if DEBUG
+        else "django.core.mail.backends.smtp.EmailBackend"
+    ),
+)
+
 MAILERS = {
-    'default': {
-        'BACKEND': 'django.core.mail.backends.console.EmailBackend',
+    "default": {
+        "BACKEND": MAILER_BACKEND,
     },
 }
+
+if MAILER_BACKEND == "django.core.mail.backends.smtp.EmailBackend":
+    MAILERS["default"]["OPTIONS"] = {
+        "host": env(
+            "EMAIL_HOST",
+            default="localhost",
+        ),
+        "port": env.int(
+            "EMAIL_PORT",
+            default=587,
+        ),
+        "username": env(
+            "EMAIL_HOST_USER",
+            default="",
+        ),
+        "password": env(
+            "EMAIL_HOST_PASSWORD",
+            default="",
+        ),
+        "use_tls": env.bool(
+            "EMAIL_USE_TLS",
+            default=True,
+        ),
+    }
+
+DEFAULT_FROM_EMAIL = env(
+    "DEFAULT_FROM_EMAIL",
+    default="noreply@geekz.local",
+)
 
 
 AUTH_USER_MODEL = "accounts.User"
 
 
+AUTH_TOKEN_TTL_HOURS = env.int(
+    "AUTH_TOKEN_TTL_HOURS",
+    default=720,
+)
+
+CATALOG_PAGE_SIZE = env.int(
+    "CATALOG_PAGE_SIZE",
+    default=24,
+)
+
+ORDER_HISTORY_PAGE_SIZE = env.int(
+    "ORDER_HISTORY_PAGE_SIZE",
+    default=20,
+)
+
+API_MAX_PAGE_SIZE = env.int(
+    "API_MAX_PAGE_SIZE",
+    default=100,
+)
+
+PRODUCT_IMAGE_MAX_BYTES = env.int(
+    "PRODUCT_IMAGE_MAX_BYTES",
+    default=5 * 1024 * 1024,
+)
+
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework.authentication.TokenAuthentication",
+        "apps.accounts.authentication.ExpiringTokenAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ),
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+    "DEFAULT_THROTTLE_CLASSES": (
+        "rest_framework.throttling.ScopedRateThrottle",
+    ),
+    "DEFAULT_THROTTLE_RATES": {
+        "login": "5/min",
+        "register": "3/hour",
+    },
 }
 
 

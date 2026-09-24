@@ -113,9 +113,16 @@ class ProductSerializer(serializers.ModelSerializer):
         )
 
     def get_categories(self, obj):
-        categories = obj.categories.filter(
-            is_active=True,
+        categories = getattr(
+            obj,
+            "active_categories",
+            None,
         )
+
+        if categories is None:
+            categories = obj.categories.filter(
+                is_active=True,
+            )
 
         return CategorySerializer(
             categories,
@@ -124,18 +131,25 @@ class ProductSerializer(serializers.ModelSerializer):
         ).data
 
     def get_variants(self, obj):
-        variants = (
-            obj.variants
-            .filter(
-                is_active=True,
-                color__is_active=True,
-                size__is_active=True,
-            )
-            .select_related(
-                "color",
-                "size",
-            )
+        variants = getattr(
+            obj,
+            "active_variants",
+            None,
         )
+
+        if variants is None:
+            variants = (
+                obj.variants
+                .filter(
+                    is_active=True,
+                    color__is_active=True,
+                    size__is_active=True,
+                )
+                .select_related(
+                    "color",
+                    "size",
+                )
+            )
 
         return ProductVariantSerializer(
             variants,
@@ -144,6 +158,18 @@ class ProductSerializer(serializers.ModelSerializer):
         ).data
 
     def get_is_in_stock(self, obj):
+        variants = getattr(
+            obj,
+            "active_variants",
+            None,
+        )
+
+        if variants is not None:
+            return any(
+                variant.stock_quantity > 0
+                for variant in variants
+            )
+
         return obj.variants.filter(
             is_active=True,
             stock_quantity__gt=0,

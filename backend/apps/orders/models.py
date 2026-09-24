@@ -228,6 +228,16 @@ class Payment(models.Model):
                 name="payment_amount_gte_0",
             ),
             models.UniqueConstraint(
+                fields=("order",),
+                condition=models.Q(status="paid"),
+                name="unique_paid_payment_per_order",
+            ),
+            models.UniqueConstraint(
+                fields=("order", "method", "provider"),
+                condition=models.Q(status="pending"),
+                name="unique_pending_payment_attempt",
+            ),
+            models.UniqueConstraint(
                 fields=("provider", "external_id"),
                 condition=~models.Q(external_id=""),
                 name="unique_provider_external_payment",

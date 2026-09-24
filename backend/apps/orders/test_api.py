@@ -81,8 +81,6 @@ class OrderAPITests(APITestCase):
             "shipping_city": "Itapui",
             "shipping_state": "SP",
             "shipping_country": "BR",
-            "shipping_amount": "10.00",
-            "discount_amount": "5.00",
             "notes": "Pedido criado pela API.",
         }
         data.update(overrides)
@@ -151,15 +149,15 @@ class OrderAPITests(APITestCase):
         )
         self.assertEqual(
             order.shipping_amount,
-            Decimal("10.00"),
+            Decimal("0.00"),
         )
         self.assertEqual(
             order.discount_amount,
-            Decimal("5.00"),
+            Decimal("0.00"),
         )
         self.assertEqual(
             order.total_amount,
-            Decimal("184.80"),
+            Decimal("179.80"),
         )
         self.assertEqual(
             order.items.count(),
@@ -175,7 +173,43 @@ class OrderAPITests(APITestCase):
         )
         self.assertEqual(
             response.data["total_amount"],
-            "184.80",
+            "179.80",
+        )
+
+    def test_checkout_ignores_client_financial_amounts(self):
+        self.authenticate()
+
+        payload = self.checkout_payload(
+            shipping_amount="999.00",
+            discount_amount="999.00",
+        )
+
+        response = self.client.post(
+            reverse("orders:checkout"),
+            payload,
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            201,
+        )
+
+        order = Order.objects.get(
+            public_id=response.data["public_id"],
+        )
+
+        self.assertEqual(
+            order.shipping_amount,
+            Decimal("0.00"),
+        )
+        self.assertEqual(
+            order.discount_amount,
+            Decimal("0.00"),
+        )
+        self.assertEqual(
+            order.total_amount,
+            Decimal("179.80"),
         )
 
     def test_checkout_cannot_use_another_users_cart(self):
@@ -282,7 +316,7 @@ class OrderAPITests(APITestCase):
         )
         self.assertEqual(
             response.data["amount"],
-            "184.80",
+            "179.80",
         )
         self.assertEqual(
             Payment.objects.filter(
@@ -460,6 +494,37 @@ class OrderAPITests(APITestCase):
         self.assertEqual(
             payment.status,
             Payment.Status.PENDING,
+        )
+
+    def test_credit_card_payment_method_is_not_available(self):
+        order = self.create_order()
+
+        response = self.client.post(
+            reverse(
+                "orders:payment-attempt",
+                kwargs={
+                    "public_id": order.public_id,
+                },
+            ),
+            {
+                "method": Payment.Method.CREDIT_CARD,
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            400,
+        )
+        self.assertIn(
+            "method",
+            response.data,
+        )
+        self.assertEqual(
+            Payment.objects.filter(
+                order=order,
+            ).count(),
+            0,
         )
 
     def test_invalid_payment_method_returns_bad_request(self):

@@ -166,6 +166,92 @@ class AccountsAPITests(APITestCase):
             (401, 403),
         )
 
+    def test_me_patch_requires_authentication(self):
+        response = self.client.patch(
+            reverse("accounts:me"),
+            {
+                "first_name": "Novo Nome",
+            },
+            format="json",
+        )
+
+        self.assertIn(
+            response.status_code,
+            (401, 403),
+        )
+
+    def test_me_can_update_name(self):
+        token = Token.objects.create(
+            user=self.user,
+        )
+        self.authenticate_with_token(token)
+
+        response = self.client.patch(
+            reverse("accounts:me"),
+            {
+                "first_name": "Diogo",
+                "last_name": "Atualizado",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertEqual(
+            self.user.first_name,
+            "Diogo",
+        )
+        self.assertEqual(
+            self.user.last_name,
+            "Atualizado",
+        )
+        self.assertEqual(
+            response.data["first_name"],
+            "Diogo",
+        )
+        self.assertEqual(
+            response.data["last_name"],
+            "Atualizado",
+        )
+
+    def test_me_keeps_email_read_only(self):
+        token = Token.objects.create(
+            user=self.user,
+        )
+        self.authenticate_with_token(token)
+
+        original_email = self.user.email
+
+        response = self.client.patch(
+            reverse("accounts:me"),
+            {
+                "email": "changed-email@example.com",
+                "first_name": "Atualizado",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertEqual(
+            self.user.email,
+            original_email,
+        )
+        self.assertEqual(
+            response.data["email"],
+            original_email,
+        )
+
     def test_token_authentication_accesses_me_cart_and_order(self):
         token = Token.objects.create(
             user=self.user,

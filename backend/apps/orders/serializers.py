@@ -1,5 +1,3 @@
-from decimal import Decimal
-
 from rest_framework import serializers
 
 from .models import Order, OrderItem, Payment
@@ -123,21 +121,6 @@ class CheckoutSerializer(serializers.Serializer):
         default="BR",
     )
 
-    shipping_amount = serializers.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        min_value=Decimal("0.00"),
-        required=False,
-        default=Decimal("0.00"),
-    )
-    discount_amount = serializers.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        min_value=Decimal("0.00"),
-        required=False,
-        default=Decimal("0.00"),
-    )
-
     notes = serializers.CharField(
         allow_blank=True,
         required=False,
@@ -147,5 +130,10 @@ class CheckoutSerializer(serializers.Serializer):
 
 class PaymentAttemptSerializer(serializers.Serializer):
     method = serializers.ChoiceField(
-        choices=Payment.Method.choices,
+        choices=(
+            (
+                Payment.Method.PIX,
+                "Pix",
+            ),
+        ),
     )

@@ -81,6 +81,29 @@ class CheckoutAPIView(APIView):
         )
 
 
+class OrderListAPIView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        orders = (
+            Order.objects
+            .filter(user=request.user)
+            .prefetch_related(
+                "items",
+                "payments",
+            )
+            .order_by("-created_at")
+        )
+
+        return Response(
+            OrderSerializer(
+                orders,
+                many=True,
+            ).data,
+            status=status.HTTP_200_OK,
+        )
+
+
 class OrderDetailAPIView(APIView):
     permission_classes = (IsAuthenticated,)
 

@@ -87,3 +87,19 @@ class CurrentUserAPIView(APIView):
             UserSerializer(request.user).data,
             status=status.HTTP_200_OK,
         )
+
+    def patch(self, request):
+        serializer = UserSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(
+            raise_exception=True,
+        )
+        user = serializer.save()
+
+        return Response(
+            UserSerializer(user).data,
+            status=status.HTTP_200_OK,
+        )

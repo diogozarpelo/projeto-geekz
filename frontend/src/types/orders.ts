@@ -63,3 +63,10 @@ export type CheckoutPayload = {
   shipping_country?: string
   notes?: string
 }
+
+export type PaginatedOrders = {
+  count: number
+  next: string | null
+  previous: string | null
+  results: Order[]
+}

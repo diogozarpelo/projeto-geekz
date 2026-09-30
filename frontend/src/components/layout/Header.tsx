@@ -38,6 +38,13 @@ export function Header() {
 
           {auth.isAuthenticated ? (
             <>
+              <NavLink
+                className={navClassName}
+                to="/pedidos"
+              >
+                Meus pedidos
+              </NavLink>
+
               <span className="site-nav__user">
                 {auth.user?.first_name
                   || auth.user?.email}

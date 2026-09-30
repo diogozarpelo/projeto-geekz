@@ -2,6 +2,7 @@ import { apiRequest } from './api'
 import type {
   CheckoutPayload,
   Order,
+  PaginatedOrders,
 } from '../types/orders'
 
 export function createOrderFromCart(
@@ -27,6 +28,20 @@ export function getOrder(
 ) {
   return apiRequest<Order>(
     `/orders/${publicId}/`,
+    {
+      token,
+      signal,
+    },
+  )
+}
+
+export function getOrders(
+  token: string,
+  page: number,
+  signal?: AbortSignal,
+) {
+  return apiRequest<PaginatedOrders>(
+    `/orders/?page=${page}`,
     {
       token,
       signal,

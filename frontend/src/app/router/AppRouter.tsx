@@ -11,6 +11,7 @@ import { CatalogPage } from '../../pages/CatalogPage'
 import { CheckoutPage } from '../../pages/CheckoutPage'
 import { HomePage } from '../../pages/HomePage'
 import { LoginPage } from '../../pages/LoginPage'
+import { MyOrdersPage } from '../../pages/MyOrdersPage'
 import { NotFoundPage } from '../../pages/NotFoundPage'
 import { OrderPage } from '../../pages/OrderPage'
 import { ProductPage } from '../../pages/ProductPage'
@@ -46,6 +47,14 @@ export function AppRouter() {
             }
           />
 
+          <Route
+            path="/pedidos"
+            element={
+              <RequireAuth>
+                <MyOrdersPage />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/pedidos/:publicId"
             element={

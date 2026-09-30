@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 
+import { ProductPurchaseActions } from '../components/ui/ProductPurchaseActions'
 import { ApiError } from '../services/api'
 import { getProduct } from '../services/catalog'
 import type {
@@ -507,6 +508,9 @@ export function ProductPage() {
               </fieldset>
             )}
 
+            <ProductPurchaseActions
+              variant={selectedVariant}
+            />
             {selectedVariant && (
               <div className="product-detail__meta">
                 <span>

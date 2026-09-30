@@ -1,10 +1,18 @@
 import { NavLink } from 'react-router-dom'
 
-function navClassName({ isActive }: { isActive: boolean }) {
+import { useAuth } from '../../auth/useAuth'
+
+function navClassName({
+  isActive,
+}: {
+  isActive: boolean
+}) {
   return isActive ? 'active' : undefined
 }
 
 export function Header() {
+  const auth = useAuth()
+
   return (
     <header className="site-header">
       <div className="container site-header__content">
@@ -12,7 +20,10 @@ export function Header() {
           Geekz
         </NavLink>
 
-        <nav className="site-nav" aria-label="Navegação principal">
+        <nav
+          className="site-nav"
+          aria-label="Navegação principal"
+        >
           <NavLink className={navClassName} end to="/">
             Home
           </NavLink>
@@ -24,6 +35,41 @@ export function Header() {
           <NavLink className={navClassName} to="/carrinho">
             Carrinho
           </NavLink>
+
+          {auth.isAuthenticated ? (
+            <>
+              <span className="site-nav__user">
+                {auth.user?.first_name
+                  || auth.user?.email}
+              </span>
+
+              <button
+                className="site-nav__button"
+                type="button"
+                onClick={() => {
+                  void auth.signOut()
+                }}
+              >
+                Sair
+              </button>
+            </>
+          ) : (
+            <>
+              <NavLink
+                className={navClassName}
+                to="/login"
+              >
+                Entrar
+              </NavLink>
+
+              <NavLink
+                className={navClassName}
+                to="/cadastro"
+              >
+                Cadastro
+              </NavLink>
+            </>
+          )}
         </nav>
       </div>
     </header>

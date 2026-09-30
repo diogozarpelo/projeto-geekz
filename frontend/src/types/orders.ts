@@ -17,7 +17,16 @@ export type Payment = {
   amount: string
   external_id: string
   provider_order_id: string
-  provider_data: Record<string, unknown>
+  provider_data: {
+    order_status?: string
+    order_status_detail?: string
+    payment_status?: string
+    payment_status_detail?: string
+    ticket_url?: string
+    qr_code?: string
+    qr_code_base64?: string
+    [key: string]: unknown
+  }
   paid_at: string | null
   refunded_at: string | null
   created_at: string
@@ -69,4 +78,11 @@ export type PaginatedOrders = {
   next: string | null
   previous: string | null
   results: Order[]
+}
+
+export type PaymentCapabilities = {
+  pix: {
+    available: boolean
+    provider: string
+  }
 }

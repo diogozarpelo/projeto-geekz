@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useState,
 } from 'react'
 import {
@@ -9,8 +10,16 @@ import {
 
 import { useAuth } from '../auth/useAuth'
 import { ApiError } from '../services/api'
-import { getOrder } from '../services/orders'
-import type { Order } from '../types/orders'
+import {
+  createPixPayment,
+  getOrder,
+  getPaymentCapabilities,
+} from '../services/orders'
+import type {
+  Order,
+  Payment,
+  PaymentCapabilities,
+} from '../types/orders'
 import { formatCurrencyBRL } from '../utils/currency'
 
 const orderStatusLabels: Record<string, string> = {
@@ -26,6 +35,7 @@ const paymentStatusLabels: Record<string, string> = {
   pending: 'Pendente',
   paid: 'Pago',
   failed: 'Falhou',
+  cancelled: 'Cancelado',
   refunded: 'Reembolsado',
 }
 
@@ -36,14 +46,37 @@ function getStatusLabel(
   return labels[status] ?? status
 }
 
+function getStringProviderData(
+  payment: Payment | undefined,
+  key: string,
+) {
+  const value = payment?.provider_data[key]
+
+  return typeof value === 'string'
+    ? value.trim()
+    : ''
+}
+
 export function OrderPage() {
   const auth = useAuth()
   const { publicId } = useParams()
 
   const [order, setOrder] = useState<Order | null>(null)
+  const [capabilities, setCapabilities] =
+    useState<PaymentCapabilities | null>(null)
+
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingCapabilities, setIsLoadingCapabilities] =
+    useState(true)
+  const [isCreatingPix, setIsCreatingPix] = useState(false)
+
   const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [capabilitiesError, setCapabilitiesError] =
+    useState<string | null>(null)
+  const [paymentError, setPaymentError] =
+    useState<string | null>(null)
+  const [pixCopied, setPixCopied] = useState(false)
 
   useEffect(() => {
     if (!auth.token || !publicId) {
@@ -56,6 +89,8 @@ export function OrderPage() {
 
     async function loadOrder() {
       try {
+        setIsLoading(true)
+
         const response = await getOrder(
           currentToken,
           currentPublicId,
@@ -101,6 +136,158 @@ export function OrderPage() {
       controller.abort()
     }
   }, [auth.token, publicId])
+
+  useEffect(() => {
+    if (!auth.token) {
+      return
+    }
+
+    const currentToken = auth.token
+    const controller = new AbortController()
+
+    async function loadCapabilities() {
+      try {
+        setIsLoadingCapabilities(true)
+
+        const response = await getPaymentCapabilities(
+          currentToken,
+          controller.signal,
+        )
+
+        setCapabilities(response)
+        setCapabilitiesError(null)
+      } catch (requestError) {
+        if (
+          requestError instanceof DOMException
+          && requestError.name === 'AbortError'
+        ) {
+          return
+        }
+
+        setCapabilities(null)
+        setCapabilitiesError(
+          requestError instanceof ApiError
+            ? requestError.message
+            : 'Não foi possível verificar a disponibilidade do Pix.',
+        )
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingCapabilities(false)
+        }
+      }
+    }
+
+    void loadCapabilities()
+
+    return () => {
+      controller.abort()
+    }
+  }, [auth.token])
+
+  const pixPayment = useMemo(() => {
+    if (!order) {
+      return undefined
+    }
+
+    return [...order.payments]
+      .reverse()
+      .find((payment) => payment.method === 'pix')
+  }, [order])
+
+  const pixCode = getStringProviderData(
+    pixPayment,
+    'qr_code',
+  )
+
+  const pixQrCodeBase64 = getStringProviderData(
+    pixPayment,
+    'qr_code_base64',
+  )
+
+  const pixTicketUrl = getStringProviderData(
+    pixPayment,
+    'ticket_url',
+  )
+
+  const pixImageSource = pixQrCodeBase64
+    ? (
+      pixQrCodeBase64.startsWith('data:image')
+        ? pixQrCodeBase64
+        : `data:image/png;base64,${pixQrCodeBase64}`
+    )
+    : ''
+
+  async function handleCreatePix() {
+    if (
+      !auth.token
+      || !publicId
+      || !capabilities?.pix.available
+    ) {
+      return
+    }
+
+    try {
+      setIsCreatingPix(true)
+      setPaymentError(null)
+      setPixCopied(false)
+
+      const payment = await createPixPayment(
+        auth.token,
+        publicId,
+      )
+
+      setOrder((currentOrder) => {
+        if (!currentOrder) {
+          return currentOrder
+        }
+
+        const existingPaymentIndex =
+          currentOrder.payments.findIndex(
+            (currentPayment) => (
+              currentPayment.id === payment.id
+            ),
+          )
+
+        const nextPayments = [...currentOrder.payments]
+
+        if (existingPaymentIndex >= 0) {
+          nextPayments[existingPaymentIndex] = payment
+        } else {
+          nextPayments.push(payment)
+        }
+
+        return {
+          ...currentOrder,
+          payments: nextPayments,
+          payment_status: payment.status,
+        }
+      })
+    } catch (requestError) {
+      setPaymentError(
+        requestError instanceof ApiError
+          ? requestError.message
+          : 'Não foi possível gerar o pagamento Pix.',
+      )
+    } finally {
+      setIsCreatingPix(false)
+    }
+  }
+
+  async function handleCopyPix() {
+    if (!pixCode) {
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(pixCode)
+      setPixCopied(true)
+      setPaymentError(null)
+    } catch {
+      setPaymentError(
+        'Não foi possível copiar o código Pix automaticamente.',
+      )
+    }
+  }
 
   if (isLoading) {
     return (
@@ -153,16 +340,31 @@ export function OrderPage() {
     )
   }
 
+  const paymentIsFinal =
+    order.payment_status === 'paid'
+    || order.payment_status === 'refunded'
+
+  const orderIsCancelled =
+    order.status === 'cancelled'
+
+  const pixAvailable =
+    capabilities?.pix.available === true
+
+  const canGeneratePix =
+    pixAvailable
+    && !paymentIsFinal
+    && !orderIsCancelled
+
   return (
     <section className="page-section">
       <div className="container checkout-success">
-        <p className="eyebrow">Pedido criado</p>
+        <p className="eyebrow">Pedido</p>
 
         <h1>Pedido recebido</h1>
 
         <p className="page-intro">
-          Seu pedido está registrado no sistema. O pagamento ainda não
-          foi iniciado nesta etapa do projeto.
+          Seu pedido está registrado no sistema. Você pode acompanhar
+          o status e, quando disponível, iniciar o pagamento por Pix.
         </p>
 
         <div className="checkout-success__card">
@@ -273,12 +475,145 @@ export function OrderPage() {
           </div>
         </div>
 
+        <section
+          className="pix-payment"
+          aria-labelledby="pix-payment-title"
+        >
+          <div className="pix-payment__heading">
+            <div>
+              <p className="eyebrow">Pagamento</p>
+              <h2 id="pix-payment-title">Pix</h2>
+            </div>
+
+            <span className="pix-payment__status">
+              {getStatusLabel(
+                paymentStatusLabels,
+                order.payment_status,
+              )}
+            </span>
+          </div>
+
+          {paymentIsFinal ? (
+            <p className="pix-payment__message">
+              Este pedido não possui pagamento Pix pendente.
+            </p>
+          ) : orderIsCancelled ? (
+            <p className="pix-payment__message">
+              Pedidos cancelados não podem receber novos pagamentos.
+            </p>
+          ) : pixCode ? (
+            <div className="pix-payment__content">
+              {pixImageSource && (
+                <img
+                  className="pix-payment__qr"
+                  src={pixImageSource}
+                  alt="QR Code do pagamento Pix"
+                />
+              )}
+
+              <div className="pix-payment__details">
+                <strong>Pix gerado</strong>
+
+                <p>
+                  Use o QR Code ou copie o código Pix abaixo.
+                </p>
+
+                <code className="pix-payment__code">
+                  {pixCode}
+                </code>
+
+                <div className="pix-payment__actions">
+                  <button
+                    className="button-primary"
+                    type="button"
+                    onClick={() => {
+                      void handleCopyPix()
+                    }}
+                  >
+                    {pixCopied
+                      ? 'Código copiado'
+                      : 'Copiar código Pix'}
+                  </button>
+
+                  {pixTicketUrl && (
+                    <a
+                      className="button-secondary"
+                      href={pixTicketUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Abrir pagamento
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : isLoadingCapabilities ? (
+            <p className="pix-payment__message">
+              Verificando disponibilidade do Pix...
+            </p>
+          ) : capabilitiesError ? (
+            <p
+              className="pix-payment__message"
+              role="alert"
+            >
+              {capabilitiesError}
+            </p>
+          ) : canGeneratePix ? (
+            <div className="pix-payment__ready">
+              <p>
+                Gere um Pix para este pedido. O valor será definido
+                pelo backend com base no total registrado.
+              </p>
+
+              <button
+                className="button-primary"
+                disabled={isCreatingPix}
+                type="button"
+                onClick={() => {
+                  void handleCreatePix()
+                }}
+              >
+                {isCreatingPix
+                  ? 'Gerando Pix...'
+                  : 'Gerar pagamento Pix'}
+              </button>
+            </div>
+          ) : (
+            <div className="pix-payment__unavailable">
+              <strong>Pix indisponível neste ambiente</strong>
+
+              <p>
+                A integração está preparada, mas as credenciais do
+                provedor de pagamento não estão configuradas neste
+                ambiente de desenvolvimento.
+              </p>
+            </div>
+          )}
+
+          {paymentError && (
+            <p
+              className="pix-payment__error"
+              role="alert"
+            >
+              {paymentError}
+            </p>
+          )}
+        </section>
+
         <div className="checkout-success__actions">
           <Link
             className="button-primary"
             to="/catalogo"
           >
             Continuar comprando
+          </Link>
+
+          <Link
+            className="button-secondary"
+            to="/pedidos"
+          >
+            Meus pedidos
           </Link>
 
           <Link

@@ -3,6 +3,8 @@ import type {
   CheckoutPayload,
   Order,
   PaginatedOrders,
+  Payment,
+  PaymentCapabilities,
 } from '../types/orders'
 
 export function createOrderFromCart(
@@ -44,6 +46,37 @@ export function getOrders(
     `/orders/?page=${page}`,
     {
       token,
+      signal,
+    },
+  )
+}
+
+export function getPaymentCapabilities(
+  token: string,
+  signal?: AbortSignal,
+) {
+  return apiRequest<PaymentCapabilities>(
+    '/orders/payment-capabilities/',
+    {
+      token,
+      signal,
+    },
+  )
+}
+
+export function createPixPayment(
+  token: string,
+  publicId: string,
+  signal?: AbortSignal,
+) {
+  return apiRequest<Payment>(
+    `/orders/${publicId}/payments/`,
+    {
+      method: 'POST',
+      token,
+      body: {
+        method: 'pix',
+      },
       signal,
     },
   )

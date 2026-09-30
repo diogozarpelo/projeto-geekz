@@ -2,6 +2,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient, APITestCase
 
@@ -15,6 +16,10 @@ from .providers.mercado_pago import MercadoPagoError
 User = get_user_model()
 
 
+@override_settings(
+    MERCADO_PAGO_ACCESS_TOKEN="test-access-token",
+    MERCADO_PAGO_WEBHOOK_SECRET="test-webhook-secret",
+)
 class OrderAPITests(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
@@ -276,6 +281,54 @@ class OrderAPITests(APITestCase):
         self.assertEqual(
             response.status_code,
             404,
+        )
+
+    def test_payment_capabilities_report_pix_available(self):
+        response = self.client.get(
+            reverse("orders:payment-capabilities")
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+        self.assertTrue(
+            response.data["pix"]["available"]
+        )
+        self.assertEqual(
+            response.data["pix"]["provider"],
+            "mercado_pago",
+        )
+
+    @override_settings(
+        MERCADO_PAGO_ACCESS_TOKEN="",
+        MERCADO_PAGO_WEBHOOK_SECRET="",
+    )
+    def test_unconfigured_pix_does_not_create_payment(self):
+        order = self.create_order()
+
+        response = self.client.post(
+            reverse(
+                "orders:payment-attempt",
+                kwargs={
+                    "public_id": order.public_id,
+                },
+            ),
+            {
+                "method": Payment.Method.PIX,
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            502,
+        )
+        self.assertEqual(
+            Payment.objects.filter(
+                order=order,
+            ).count(),
+            0,
         )
 
     @patch("apps.orders.views.MercadoPagoProvider")

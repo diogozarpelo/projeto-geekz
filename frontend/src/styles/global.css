@@ -1603,3 +1603,126 @@ h1 {
     padding: 28px 20px;
   }
 }
+
+/* === Pix payment === */
+
+.pix-payment {
+  margin-top: 32px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.pix-payment__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.pix-payment__heading h2 {
+  margin: 4px 0 0;
+}
+
+.pix-payment__status {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.pix-payment__message,
+.pix-payment__ready,
+.pix-payment__unavailable {
+  margin-top: 24px;
+}
+
+.pix-payment__message,
+.pix-payment__ready p,
+.pix-payment__unavailable p {
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.pix-payment__unavailable {
+  padding: 20px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+}
+
+.pix-payment__unavailable p {
+  margin: 8px 0 0;
+}
+
+.pix-payment__content {
+  display: grid;
+  grid-template-columns: minmax(180px, 220px) 1fr;
+  margin-top: 24px;
+  gap: 28px;
+  align-items: start;
+}
+
+.pix-payment__qr {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.pix-payment__details {
+  display: grid;
+  gap: 14px;
+}
+
+.pix-payment__details p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.pix-payment__code {
+  display: block;
+  overflow-wrap: anywhere;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--background);
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.pix-payment__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pix-payment__actions .button-secondary {
+  text-decoration: none;
+}
+
+.pix-payment__error {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+@media (max-width: 680px) {
+  .pix-payment {
+    padding: 22px 18px;
+  }
+
+  .pix-payment__heading {
+    flex-direction: column;
+  }
+
+  .pix-payment__content {
+    grid-template-columns: 1fr;
+  }
+
+  .pix-payment__qr {
+    max-width: 240px;
+  }
+}

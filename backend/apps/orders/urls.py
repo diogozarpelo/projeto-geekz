@@ -6,6 +6,7 @@ from .views import (
     OrderDetailAPIView,
     OrderListAPIView,
     PaymentAttemptAPIView,
+    PaymentCapabilitiesAPIView,
 )
 
 
@@ -22,6 +23,11 @@ urlpatterns = [
         "webhooks/mercado-pago/",
         MercadoPagoWebhookAPIView.as_view(),
         name="mercado-pago-webhook",
+    ),
+    path(
+        "payment-capabilities/",
+        PaymentCapabilitiesAPIView.as_view(),
+        name="payment-capabilities",
     ),
     path(
         "checkout/",

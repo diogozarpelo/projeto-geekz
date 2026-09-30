@@ -42,6 +42,41 @@ class PaymentProviderUnavailable(APIException):
     default_code = "payment_provider_unavailable"
 
 
+def _is_configured_setting(value):
+    normalized_value = str(value or "").strip()
+
+    return bool(
+        normalized_value
+        and normalized_value.lower() != "change-me"
+    )
+
+
+def pix_payment_available():
+    return (
+        _is_configured_setting(
+            settings.MERCADO_PAGO_ACCESS_TOKEN
+        )
+        and _is_configured_setting(
+            settings.MERCADO_PAGO_WEBHOOK_SECRET
+        )
+    )
+
+
+class PaymentCapabilitiesAPIView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        return Response(
+            {
+                "pix": {
+                    "available": pix_payment_available(),
+                    "provider": "mercado_pago",
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
 class CheckoutAPIView(APIView):
     permission_classes = (IsAuthenticated,)
 
@@ -135,12 +170,22 @@ class PaymentAttemptAPIView(APIView):
             raise_exception=True,
         )
 
+        payment_method = serializer.validated_data[
+            "method"
+        ]
+
+        if (
+            payment_method == Payment.Method.PIX
+            and not pix_payment_available()
+        ):
+            raise PaymentProviderUnavailable(
+                "Pix payment is not configured for this environment."
+            )
+
         try:
             payment = create_payment_attempt(
                 order=order,
-                method=serializer.validated_data[
-                    "method"
-                ],
+                method=payment_method,
             )
         except PaymentError as exc:
             raise serializers.ValidationError(

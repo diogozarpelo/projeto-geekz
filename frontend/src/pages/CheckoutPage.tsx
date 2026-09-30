@@ -3,7 +3,7 @@ import {
   useState,
   type FormEvent,
 } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../auth/useAuth'
 import { ApiError } from '../services/api'
@@ -15,6 +15,7 @@ import { formatCurrencyBRL } from '../utils/currency'
 
 export function CheckoutPage() {
   const auth = useAuth()
+  const navigate = useNavigate()
 
   const defaultName = [
     auth.user?.first_name,
@@ -126,6 +127,13 @@ export function CheckoutPage() {
       )
 
       setOrder(response)
+
+      navigate(
+        `/pedidos/${response.public_id}`,
+        {
+          replace: true,
+        },
+      )
     } catch (requestError) {
       setError(
         requestError instanceof ApiError

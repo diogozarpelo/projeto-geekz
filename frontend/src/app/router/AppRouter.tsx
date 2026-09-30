@@ -12,6 +12,7 @@ import { CheckoutPage } from '../../pages/CheckoutPage'
 import { HomePage } from '../../pages/HomePage'
 import { LoginPage } from '../../pages/LoginPage'
 import { NotFoundPage } from '../../pages/NotFoundPage'
+import { OrderPage } from '../../pages/OrderPage'
 import { ProductPage } from '../../pages/ProductPage'
 import { RegisterPage } from '../../pages/RegisterPage'
 
@@ -45,6 +46,14 @@ export function AppRouter() {
             }
           />
 
+          <Route
+            path="/pedidos/:publicId"
+            element={
+              <RequireAuth>
+                <OrderPage />
+              </RequireAuth>
+            }
+          />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>

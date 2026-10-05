@@ -1726,3 +1726,66 @@ h1 {
     max-width: 240px;
   }
 }
+
+/* === Order cancellation === */
+
+.order-cancellation {
+  margin-top: 32px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.order-cancellation h2 {
+  margin: 4px 0 0;
+}
+
+.order-cancellation__message {
+  max-width: 680px;
+  margin: 20px 0 0;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.order-cancellation__actions {
+  margin-top: 20px;
+}
+
+.button-danger {
+  display: inline-flex;
+  min-height: 44px;
+  padding: 0 18px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #b42318;
+  border-radius: 8px;
+  background: #b42318;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.button-danger:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.order-cancellation__error {
+  margin: 18px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  line-height: 1.5;
+}
+
+@media (max-width: 680px) {
+  .order-cancellation {
+    padding: 22px 18px;
+  }
+
+  .button-danger {
+    width: 100%;
+  }
+}

@@ -283,6 +283,174 @@ class OrderAPITests(APITestCase):
             404,
         )
 
+    def test_user_can_cancel_pending_order(self):
+        order = self.create_order()
+
+        response = self.client.post(
+            reverse(
+                "orders:cancel",
+                kwargs={
+                    "public_id": order.public_id,
+                },
+            ),
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        order.refresh_from_db()
+        self.variant.refresh_from_db()
+
+        self.assertEqual(
+            order.status,
+            Order.Status.CANCELLED,
+        )
+        self.assertEqual(
+            order.payment_status,
+            Order.PaymentStatus.CANCELLED,
+        )
+        self.assertEqual(
+            self.variant.stock_quantity,
+            10,
+        )
+        self.assertEqual(
+            response.data["status"],
+            Order.Status.CANCELLED,
+        )
+
+    def test_cancel_order_is_idempotent(self):
+        order = self.create_order()
+
+        url = reverse(
+            "orders:cancel",
+            kwargs={
+                "public_id": order.public_id,
+            },
+        )
+
+        first_response = self.client.post(
+            url,
+            format="json",
+        )
+        second_response = self.client.post(
+            url,
+            format="json",
+        )
+
+        self.assertEqual(
+            first_response.status_code,
+            200,
+        )
+        self.assertEqual(
+            second_response.status_code,
+            200,
+        )
+
+        self.variant.refresh_from_db()
+
+        self.assertEqual(
+            self.variant.stock_quantity,
+            10,
+        )
+
+    def test_user_cannot_cancel_another_users_order(self):
+        order = self.create_order()
+
+        self.authenticate(
+            self.other_user,
+        )
+
+        response = self.client.post(
+            reverse(
+                "orders:cancel",
+                kwargs={
+                    "public_id": order.public_id,
+                },
+            ),
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            404,
+        )
+
+    def test_paid_order_cannot_be_cancelled(self):
+        order = self.create_order()
+        order.payment_status = Order.PaymentStatus.PAID
+        order.status = Order.Status.CONFIRMED
+        order.save(
+            update_fields=(
+                "payment_status",
+                "status",
+                "updated_at",
+            )
+        )
+
+        response = self.client.post(
+            reverse(
+                "orders:cancel",
+                kwargs={
+                    "public_id": order.public_id,
+                },
+            ),
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            400,
+        )
+
+        self.variant.refresh_from_db()
+
+        self.assertEqual(
+            self.variant.stock_quantity,
+            8,
+        )
+
+    def test_order_with_external_payment_cannot_be_cancelled(self):
+        order = self.create_order()
+
+        Payment.objects.create(
+            order=order,
+            method=Payment.Method.PIX,
+            provider=Payment.Provider.MERCADO_PAGO,
+            status=Payment.Status.PENDING,
+            amount=order.total_amount,
+            provider_order_id="ORDER-EXTERNAL-001",
+            external_id="PAYMENT-EXTERNAL-001",
+        )
+
+        response = self.client.post(
+            reverse(
+                "orders:cancel",
+                kwargs={
+                    "public_id": order.public_id,
+                },
+            ),
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            400,
+        )
+
+        order.refresh_from_db()
+        self.variant.refresh_from_db()
+
+        self.assertEqual(
+            order.status,
+            Order.Status.PENDING,
+        )
+        self.assertEqual(
+            self.variant.stock_quantity,
+            8,
+        )
     def test_payment_capabilities_report_pix_available(self):
         response = self.client.get(
             reverse("orders:payment-capabilities")

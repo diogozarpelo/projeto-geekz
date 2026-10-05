@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     CheckoutAPIView,
     MercadoPagoWebhookAPIView,
+    OrderCancelAPIView,
     OrderDetailAPIView,
     OrderListAPIView,
     PaymentAttemptAPIView,
@@ -38,6 +39,11 @@ urlpatterns = [
         "<uuid:public_id>/",
         OrderDetailAPIView.as_view(),
         name="detail",
+    ),
+    path(
+        "<uuid:public_id>/cancel/",
+        OrderCancelAPIView.as_view(),
+        name="cancel",
     ),
     path(
         "<uuid:public_id>/payments/",

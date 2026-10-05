@@ -81,3 +81,18 @@ export function createPixPayment(
     },
   )
 }
+
+export function cancelOrder(
+  token: string,
+  publicId: string,
+  signal?: AbortSignal,
+) {
+  return apiRequest<Order>(
+    `/orders/${publicId}/cancel/`,
+    {
+      method: 'POST',
+      token,
+      signal,
+    },
+  )
+}

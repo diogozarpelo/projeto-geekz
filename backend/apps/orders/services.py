@@ -5,7 +5,7 @@ from django.db import transaction
 from apps.cart.models import Cart, CartItem
 from apps.catalog.models import ProductVariant
 
-from .models import Order, OrderItem
+from .models import Order, OrderItem, Payment
 
 
 class OrderConversionError(ValueError):
@@ -241,3 +241,131 @@ def convert_cart_to_order(
     )
 
     return order
+
+class OrderCancellationError(ValueError):
+    pass
+
+
+@transaction.atomic
+def cancel_order(*, order):
+    locked_order = (
+        Order.objects
+        .select_for_update()
+        .get(pk=order.pk)
+    )
+
+    if locked_order.status == Order.Status.CANCELLED:
+        return locked_order
+
+    if locked_order.status != Order.Status.PENDING:
+        raise OrderCancellationError(
+            "Only pending orders can be cancelled."
+        )
+
+    if locked_order.payment_status in (
+        Order.PaymentStatus.PAID,
+        Order.PaymentStatus.REFUNDED,
+    ):
+        raise OrderCancellationError(
+            "Paid or refunded orders cannot be cancelled."
+        )
+
+    payments = list(
+        Payment.objects
+        .select_for_update()
+        .filter(order=locked_order)
+        .order_by("pk")
+    )
+
+    for payment in payments:
+        if payment.status in (
+            Payment.Status.PAID,
+            Payment.Status.REFUNDED,
+        ):
+            raise OrderCancellationError(
+                "Orders with completed payments cannot be cancelled."
+            )
+
+        if (
+            payment.provider_order_id
+            or payment.external_id
+        ):
+            raise OrderCancellationError(
+                "Orders with an external payment already initiated "
+                "cannot be cancelled automatically."
+            )
+
+    order_items = list(
+        OrderItem.objects
+        .filter(order=locked_order)
+        .order_by("pk")
+    )
+
+    variant_ids = sorted(
+        {
+            item.variant_id
+            for item in order_items
+            if item.variant_id is not None
+        }
+    )
+
+    if len(variant_ids) != len(
+        {
+            item.variant_id
+            for item in order_items
+        }
+    ):
+        raise OrderCancellationError(
+            "Order stock cannot be restored because a variant "
+            "is no longer available."
+        )
+
+    locked_variants = {
+        variant.pk: variant
+        for variant in (
+            ProductVariant.objects
+            .select_for_update()
+            .filter(pk__in=variant_ids)
+            .order_by("pk")
+        )
+    }
+
+    if len(locked_variants) != len(variant_ids):
+        raise OrderCancellationError(
+            "Order stock cannot be restored because a variant "
+            "is no longer available."
+        )
+
+    for item in order_items:
+        variant = locked_variants[item.variant_id]
+        variant.stock_quantity += item.quantity
+        variant.save(
+            update_fields=(
+                "stock_quantity",
+                "updated_at",
+            )
+        )
+
+    for payment in payments:
+        if payment.status == Payment.Status.PENDING:
+            payment.status = Payment.Status.CANCELLED
+            payment.save(
+                update_fields=(
+                    "status",
+                    "updated_at",
+                )
+            )
+
+    locked_order.status = Order.Status.CANCELLED
+    locked_order.payment_status = (
+        Order.PaymentStatus.CANCELLED
+    )
+    locked_order.save(
+        update_fields=(
+            "status",
+            "payment_status",
+            "updated_at",
+        )
+    )
+
+    return locked_order

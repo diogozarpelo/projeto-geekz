@@ -22,6 +22,7 @@ class Order(models.Model):
         PAID = "paid", "Paid"
         FAILED = "failed", "Failed"
         REFUNDED = "refunded", "Refunded"
+        CANCELLED = "cancelled", "Cancelled"
 
     public_id = models.UUIDField(
         default=uuid.uuid4,

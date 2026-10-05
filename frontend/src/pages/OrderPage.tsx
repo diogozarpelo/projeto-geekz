@@ -11,6 +11,7 @@ import {
 import { useAuth } from '../auth/useAuth'
 import { ApiError } from '../services/api'
 import {
+  cancelOrder,
   createPixPayment,
   getOrder,
   getPaymentCapabilities,
@@ -69,12 +70,15 @@ export function OrderPage() {
   const [isLoadingCapabilities, setIsLoadingCapabilities] =
     useState(true)
   const [isCreatingPix, setIsCreatingPix] = useState(false)
+  const [isCancellingOrder, setIsCancellingOrder] = useState(false)
 
   const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [capabilitiesError, setCapabilitiesError] =
     useState<string | null>(null)
   const [paymentError, setPaymentError] =
+    useState<string | null>(null)
+  const [cancelError, setCancelError] =
     useState<string | null>(null)
   const [pixCopied, setPixCopied] = useState(false)
 
@@ -289,6 +293,47 @@ export function OrderPage() {
     }
   }
 
+  async function handleCancelOrder() {
+    if (
+      !auth.token
+      || !publicId
+      || !canCancelOrder
+    ) {
+      return
+    }
+
+    const confirmed = window.confirm(
+      'Tem certeza que deseja cancelar este pedido? '
+      + 'O estoque reservado será devolvido.',
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setIsCancellingOrder(true)
+      setCancelError(null)
+
+      const cancelledOrder = await cancelOrder(
+        auth.token,
+        publicId,
+      )
+
+      setOrder(cancelledOrder)
+      setPaymentError(null)
+      setPixCopied(false)
+    } catch (requestError) {
+      setCancelError(
+        requestError instanceof ApiError
+          ? requestError.message
+          : 'Não foi possível cancelar o pedido.',
+      )
+    } finally {
+      setIsCancellingOrder(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <section className="page-section">
@@ -354,6 +399,18 @@ export function OrderPage() {
     pixAvailable
     && !paymentIsFinal
     && !orderIsCancelled
+
+  const hasExternalPayment = order.payments.some(
+    (payment) => (
+      Boolean(payment.provider_order_id)
+      || Boolean(payment.external_id)
+    ),
+  )
+
+  const canCancelOrder =
+    order.status === 'pending'
+    && !paymentIsFinal
+    && !hasExternalPayment
 
   return (
     <section className="page-section">
@@ -601,6 +658,72 @@ export function OrderPage() {
           )}
         </section>
 
+        {(orderIsCancelled || order.status === 'pending') && (
+          <section
+            className="order-cancellation"
+            aria-labelledby="order-cancellation-title"
+          >
+            <div>
+              <p className="eyebrow">Pedido</p>
+
+              <h2 id="order-cancellation-title">
+                {orderIsCancelled
+                  ? 'Pedido cancelado'
+                  : 'Cancelar pedido'}
+              </h2>
+            </div>
+
+            {orderIsCancelled ? (
+              <p className="order-cancellation__message">
+                Este pedido foi cancelado e não pode receber
+                novos pagamentos.
+              </p>
+            ) : canCancelOrder ? (
+              <>
+                <p className="order-cancellation__message">
+                  Você pode cancelar este pedido enquanto ele
+                  ainda estiver pendente. Os itens reservados
+                  voltarão ao estoque.
+                </p>
+
+                <div className="order-cancellation__actions">
+                  <button
+                    className="button-danger"
+                    disabled={isCancellingOrder}
+                    type="button"
+                    onClick={() => {
+                      void handleCancelOrder()
+                    }}
+                  >
+                    {isCancellingOrder
+                      ? 'Cancelando pedido...'
+                      : 'Cancelar pedido'}
+                  </button>
+                </div>
+              </>
+            ) : hasExternalPayment ? (
+              <p className="order-cancellation__message">
+                O pagamento deste pedido já foi iniciado.
+                O cancelamento automático não está disponível
+                neste momento.
+              </p>
+            ) : (
+              <p className="order-cancellation__message">
+                Este pedido não pode mais ser cancelado
+                automaticamente.
+              </p>
+            )}
+
+            {cancelError && (
+              <p
+                className="order-cancellation__error"
+                role="alert"
+              >
+                {cancelError}
+              </p>
+            )}
+          </section>
+        )}
         <div className="checkout-success__actions">
           <Link
             className="button-primary"

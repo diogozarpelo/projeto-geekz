@@ -33,7 +33,12 @@ from .serializers import (
     PaymentAttemptSerializer,
     PaymentSerializer,
 )
-from .services import OrderConversionError, convert_cart_to_order
+from .services import (
+    OrderCancellationError,
+    OrderConversionError,
+    cancel_order,
+    convert_cart_to_order,
+)
 
 
 class PaymentProviderUnavailable(APIException):
@@ -152,6 +157,39 @@ class OrderDetailAPIView(APIView):
             status=status.HTTP_200_OK,
         )
 
+
+class OrderCancelAPIView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, public_id):
+        order = get_object_or_404(
+            Order,
+            public_id=public_id,
+            user=request.user,
+        )
+
+        try:
+            cancelled_order = cancel_order(
+                order=order,
+            )
+        except OrderCancellationError as exc:
+            raise serializers.ValidationError(
+                {"detail": str(exc)}
+            ) from exc
+
+        cancelled_order = (
+            Order.objects
+            .prefetch_related(
+                "items",
+                "payments",
+            )
+            .get(pk=cancelled_order.pk)
+        )
+
+        return Response(
+            OrderSerializer(cancelled_order).data,
+            status=status.HTTP_200_OK,
+        )
 
 class PaymentAttemptAPIView(APIView):
     permission_classes = (IsAuthenticated,)

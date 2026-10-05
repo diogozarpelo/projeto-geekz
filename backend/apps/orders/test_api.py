@@ -452,6 +452,8 @@ class OrderAPITests(APITestCase):
             8,
         )
     def test_payment_capabilities_report_pix_available(self):
+        self.authenticate()
+
         response = self.client.get(
             reverse("orders:payment-capabilities")
         )

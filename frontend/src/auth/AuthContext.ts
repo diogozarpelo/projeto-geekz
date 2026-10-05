@@ -4,6 +4,7 @@ import type {
   AuthUser,
   LoginPayload,
   RegisterPayload,
+  UpdateProfilePayload,
 } from '../types/auth'
 
 export type AuthContextValue = {
@@ -13,6 +14,9 @@ export type AuthContextValue = {
   isAuthenticated: boolean
   signIn: (payload: LoginPayload) => Promise<void>
   signUp: (payload: RegisterPayload) => Promise<void>
+  updateProfile: (
+    payload: UpdateProfilePayload,
+  ) => Promise<AuthUser>
   signOut: () => Promise<void>
 }
 

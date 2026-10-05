@@ -22,3 +22,8 @@ export type RegisterPayload = {
   password: string
   password_confirm: string
 }
+
+export type UpdateProfilePayload = {
+  first_name: string
+  last_name: string
+}

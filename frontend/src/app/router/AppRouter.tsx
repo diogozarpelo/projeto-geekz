@@ -11,6 +11,7 @@ import { CatalogPage } from '../../pages/CatalogPage'
 import { CheckoutPage } from '../../pages/CheckoutPage'
 import { HomePage } from '../../pages/HomePage'
 import { LoginPage } from '../../pages/LoginPage'
+import { MyAccountPage } from '../../pages/MyAccountPage'
 import { MyOrdersPage } from '../../pages/MyOrdersPage'
 import { NotFoundPage } from '../../pages/NotFoundPage'
 import { OrderPage } from '../../pages/OrderPage'
@@ -47,6 +48,14 @@ export function AppRouter() {
             }
           />
 
+          <Route
+            path="/minha-conta"
+            element={
+              <RequireAuth>
+                <MyAccountPage />
+              </RequireAuth>
+            }
+          />
           <Route
             path="/pedidos"
             element={

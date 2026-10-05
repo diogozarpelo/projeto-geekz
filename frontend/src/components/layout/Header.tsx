@@ -40,6 +40,12 @@ export function Header() {
             <>
               <NavLink
                 className={navClassName}
+                to="/minha-conta"
+              >
+                Minha conta
+              </NavLink>
+              <NavLink
+                className={navClassName}
                 to="/pedidos"
               >
                 Meus pedidos

@@ -4,6 +4,7 @@ import type {
   AuthUser,
   LoginPayload,
   RegisterPayload,
+  UpdateProfilePayload,
 } from '../types/auth'
 
 export function login(
@@ -42,6 +43,23 @@ export function getCurrentUser(
     '/accounts/me/',
     {
       token,
+      signal,
+    },
+  )
+}
+
+
+export function updateCurrentUser(
+  token: string,
+  payload: UpdateProfilePayload,
+  signal?: AbortSignal,
+) {
+  return apiRequest<AuthUser>(
+    '/accounts/me/',
+    {
+      method: 'PATCH',
+      token,
+      body: payload,
       signal,
     },
   )

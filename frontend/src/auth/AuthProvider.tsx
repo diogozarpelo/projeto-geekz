@@ -15,11 +15,13 @@ import {
   login,
   logout,
   register,
+  updateCurrentUser,
 } from '../services/auth'
 import type {
   AuthUser,
   LoginPayload,
   RegisterPayload,
+  UpdateProfilePayload,
 } from '../types/auth'
 
 export function AuthProvider({
@@ -93,6 +95,22 @@ export function AuthProvider({
     setIsLoading(false)
   }
 
+  async function updateProfile(
+    payload: UpdateProfilePayload,
+  ) {
+    if (!token) {
+      throw new Error('Sessão não autenticada.')
+    }
+
+    const updatedUser = await updateCurrentUser(
+      token,
+      payload,
+    )
+
+    setUser(updatedUser)
+
+    return updatedUser
+  }
   async function signOut() {
     const currentToken = token
 
@@ -119,6 +137,7 @@ export function AuthProvider({
     isAuthenticated: Boolean(token && user),
     signIn,
     signUp,
+    updateProfile,
     signOut,
   }
 

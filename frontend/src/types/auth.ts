@@ -27,3 +27,9 @@ export type UpdateProfilePayload = {
   first_name: string
   last_name: string
 }
+
+export type ChangePasswordPayload = {
+  current_password: string
+  new_password: string
+  new_password_confirm: string
+}

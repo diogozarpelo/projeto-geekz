@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 
 from .serializers import (
     LoginSerializer,
+    PasswordChangeSerializer,
     RegisterSerializer,
     UserSerializer,
 )
@@ -110,6 +111,35 @@ class LogoutAPIView(APIView):
         )
 
 
+
+class PasswordChangeAPIView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    @transaction.atomic
+    def post(self, request):
+        serializer = PasswordChangeSerializer(
+            data=request.data,
+            context={
+                "request": request,
+            },
+        )
+        serializer.is_valid(
+            raise_exception=True,
+        )
+
+        user = serializer.save()
+
+        token = _rotate_token(
+            user
+        )
+
+        return Response(
+            {
+                "token": token.key,
+                "user": UserSerializer(user).data,
+            },
+            status=status.HTTP_200_OK,
+        )
 class CurrentUserAPIView(APIView):
     permission_classes = (IsAuthenticated,)
 

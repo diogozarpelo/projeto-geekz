@@ -2,6 +2,7 @@ import { createContext } from 'react'
 
 import type {
   AuthUser,
+  ChangePasswordPayload,
   LoginPayload,
   RegisterPayload,
   UpdateProfilePayload,
@@ -17,6 +18,9 @@ export type AuthContextValue = {
   updateProfile: (
     payload: UpdateProfilePayload,
   ) => Promise<AuthUser>
+  changePassword: (
+    payload: ChangePasswordPayload,
+  ) => Promise<void>
   signOut: () => Promise<void>
 }
 

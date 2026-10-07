@@ -11,6 +11,7 @@ import {
   storeAuthToken,
 } from './authStorage'
 import {
+  changePassword as changePasswordRequest,
   getCurrentUser,
   login,
   logout,
@@ -19,6 +20,7 @@ import {
 } from '../services/auth'
 import type {
   AuthUser,
+  ChangePasswordPayload,
   LoginPayload,
   RegisterPayload,
   UpdateProfilePayload,
@@ -111,6 +113,23 @@ export function AuthProvider({
 
     return updatedUser
   }
+  async function changePassword(
+    payload: ChangePasswordPayload,
+  ) {
+    if (!token) {
+      throw new Error('Sessão não autenticada.')
+    }
+
+    const response = await changePasswordRequest(
+      token,
+      payload,
+    )
+
+    storeAuthToken(response.token)
+    setToken(response.token)
+    setUser(response.user)
+    setIsLoading(false)
+  }
   async function signOut() {
     const currentToken = token
 
@@ -138,6 +157,7 @@ export function AuthProvider({
     signIn,
     signUp,
     updateProfile,
+    changePassword,
     signOut,
   }
 

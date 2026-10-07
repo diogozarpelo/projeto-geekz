@@ -2,6 +2,7 @@ import { apiRequest } from './api'
 import type {
   AuthResponse,
   AuthUser,
+  ChangePasswordPayload,
   LoginPayload,
   RegisterPayload,
   UpdateProfilePayload,
@@ -58,6 +59,23 @@ export function updateCurrentUser(
     '/accounts/me/',
     {
       method: 'PATCH',
+      token,
+      body: payload,
+      signal,
+    },
+  )
+}
+
+
+export function changePassword(
+  token: string,
+  payload: ChangePasswordPayload,
+  signal?: AbortSignal,
+) {
+  return apiRequest<AuthResponse>(
+    '/accounts/password/change/',
+    {
+      method: 'POST',
       token,
       body: payload,
       signal,

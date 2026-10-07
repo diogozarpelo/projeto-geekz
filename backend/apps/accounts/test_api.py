@@ -259,6 +259,143 @@ class AccountsAPITests(APITestCase):
             original_email,
         )
 
+
+    def test_password_change_requires_authentication(self):
+        response = self.client.post(
+            reverse("accounts:password-change"),
+            {
+                "current_password": self.password,
+                "new_password": "Geekz-New-Secure-Password-2026!",
+                "new_password_confirm": "Geekz-New-Secure-Password-2026!",
+            },
+            format="json",
+        )
+
+        self.assertIn(
+            response.status_code,
+            (401, 403),
+        )
+
+    def test_password_change_rejects_wrong_current_password(self):
+        token = Token.objects.create(
+            user=self.user,
+        )
+        self.authenticate_with_token(token)
+
+        response = self.client.post(
+            reverse("accounts:password-change"),
+            {
+                "current_password": "Wrong-Current-Password!",
+                "new_password": "Geekz-New-Secure-Password-2026!",
+                "new_password_confirm": "Geekz-New-Secure-Password-2026!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            400,
+        )
+        self.assertIn(
+            "current_password",
+            response.data,
+        )
+
+    def test_password_change_rejects_confirmation_mismatch(self):
+        token = Token.objects.create(
+            user=self.user,
+        )
+        self.authenticate_with_token(token)
+
+        response = self.client.post(
+            reverse("accounts:password-change"),
+            {
+                "current_password": self.password,
+                "new_password": "Geekz-New-Secure-Password-2026!",
+                "new_password_confirm": "Different-Password-2026!",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            400,
+        )
+        self.assertIn(
+            "new_password_confirm",
+            response.data,
+        )
+
+    def test_password_change_rejects_weak_password(self):
+        token = Token.objects.create(
+            user=self.user,
+        )
+        self.authenticate_with_token(token)
+
+        response = self.client.post(
+            reverse("accounts:password-change"),
+            {
+                "current_password": self.password,
+                "new_password": "12345678",
+                "new_password_confirm": "12345678",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            400,
+        )
+        self.assertIn(
+            "non_field_errors",
+            response.data,
+        )
+
+    def test_password_change_updates_password_and_rotates_token(self):
+        old_token = Token.objects.create(
+            user=self.user,
+        )
+        self.authenticate_with_token(old_token)
+
+        new_password = "Geekz-New-Secure-Password-2026!"
+
+        response = self.client.post(
+            reverse("accounts:password-change"),
+            {
+                "current_password": self.password,
+                "new_password": new_password,
+                "new_password_confirm": new_password,
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+        self.assertIn(
+            "token",
+            response.data,
+        )
+
+        self.user.refresh_from_db()
+
+        self.assertTrue(
+            self.user.check_password(
+                new_password
+            )
+        )
+        self.assertFalse(
+            Token.objects.filter(
+                key=old_token.key,
+            ).exists()
+        )
+        self.assertTrue(
+            Token.objects.filter(
+                key=response.data["token"],
+                user=self.user,
+            ).exists()
+        )
     def test_token_authentication_accesses_me_cart_and_order(self):
         token = Token.objects.create(
             user=self.user,

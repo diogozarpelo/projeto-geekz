@@ -4,6 +4,7 @@ from .views import (
     CurrentUserAPIView,
     LoginAPIView,
     LogoutAPIView,
+    PasswordChangeAPIView,
     RegisterAPIView,
 )
 
@@ -28,6 +29,10 @@ urlpatterns = [
         name="logout",
     ),
     path(
+        "password/change/",
+        PasswordChangeAPIView.as_view(),
+        name="password-change",
+    ),    path(
         "me/",
         CurrentUserAPIView.as_view(),
         name="me",

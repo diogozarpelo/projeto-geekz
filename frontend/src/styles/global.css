@@ -1812,3 +1812,30 @@ h1 {
   color: var(--text);
   line-height: 1.5;
 }
+
+/* === Account sections === */
+
+.account-section {
+  margin-top: 36px;
+}
+
+.account-section h2 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.account-section--password {
+  margin-top: 40px;
+  padding-top: 36px;
+  border-top: 1px solid var(--border);
+}
+
+.account-section__intro {
+  margin: 12px 0 0;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.account-section .auth-form {
+  margin-top: 24px;
+}

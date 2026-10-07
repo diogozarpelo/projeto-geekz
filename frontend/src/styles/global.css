@@ -1839,3 +1839,8 @@ h1 {
 .account-section .auth-form {
   margin-top: 24px;
 }
+
+.account-section + .account-section {
+  padding-top: 36px;
+  border-top: 1px solid var(--border);
+}

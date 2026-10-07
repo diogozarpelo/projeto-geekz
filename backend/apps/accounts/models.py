@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.base_user import BaseUserManager
 from django.contrib.auth.models import AbstractUser
 from django.db import models
@@ -60,3 +61,49 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.email
+
+class UserAddress(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="address",
+    )
+    postal_code = models.CharField(
+        max_length=20,
+    )
+    street = models.CharField(
+        max_length=180,
+    )
+    number = models.CharField(
+        max_length=30,
+    )
+    complement = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+    )
+    neighborhood = models.CharField(
+        max_length=120,
+    )
+    city = models.CharField(
+        max_length=120,
+    )
+    state = models.CharField(
+        max_length=80,
+    )
+    country = models.CharField(
+        max_length=80,
+        default="BR",
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+    )
+
+    def __str__(self):
+        return (
+            f"{self.user.email} - "
+            f"{self.city}/{self.state}"
+        )

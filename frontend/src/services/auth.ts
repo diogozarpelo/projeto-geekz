@@ -6,6 +6,8 @@ import type {
   LoginPayload,
   RegisterPayload,
   UpdateProfilePayload,
+  UpdateUserAddressPayload,
+  UserAddressResponse,
 } from '../types/auth'
 
 export function login(
@@ -66,6 +68,36 @@ export function updateCurrentUser(
   )
 }
 
+
+
+export function getCurrentUserAddress(
+  token: string,
+  signal?: AbortSignal,
+) {
+  return apiRequest<UserAddressResponse>(
+    '/accounts/me/address/',
+    {
+      token,
+      signal,
+    },
+  )
+}
+
+export function updateCurrentUserAddress(
+  token: string,
+  payload: UpdateUserAddressPayload,
+  signal?: AbortSignal,
+) {
+  return apiRequest<UserAddressResponse>(
+    '/accounts/me/address/',
+    {
+      method: 'PUT',
+      token,
+      body: payload,
+      signal,
+    },
+  )
+}
 
 export function changePassword(
   token: string,

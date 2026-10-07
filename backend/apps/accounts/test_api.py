@@ -10,6 +10,7 @@ from django.urls import reverse
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient, APITestCase
 
+from apps.accounts.models import UserAddress
 from apps.orders.models import Order
 
 
@@ -722,4 +723,168 @@ class AccountsAPITests(APITestCase):
         self.assertIn(
             me_response.status_code,
             (401, 403),
+        )
+    def test_address_requires_authentication(self):
+        response = self.client.get(
+            reverse("accounts:me-address")
+        )
+
+        self.assertIn(
+            response.status_code,
+            (401, 403),
+        )
+
+    def test_address_returns_null_when_not_configured(self):
+        token = Token.objects.create(
+            user=self.user,
+        )
+        self.authenticate_with_token(token)
+
+        response = self.client.get(
+            reverse("accounts:me-address")
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+        self.assertIsNone(
+            response.data["address"]
+        )
+
+    def test_address_can_be_created(self):
+        token = Token.objects.create(
+            user=self.user,
+        )
+        self.authenticate_with_token(token)
+
+        response = self.client.put(
+            reverse("accounts:me-address"),
+            {
+                "postal_code": "17230-000",
+                "street": "Rua Teste",
+                "number": "100",
+                "complement": "Casa",
+                "neighborhood": "Centro",
+                "city": "Itapui",
+                "state": "sp",
+                "country": "br",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            201,
+        )
+        self.assertEqual(
+            response.data["address"]["state"],
+            "SP",
+        )
+        self.assertEqual(
+            response.data["address"]["country"],
+            "BR",
+        )
+
+        address = UserAddress.objects.get(
+            user=self.user,
+        )
+
+        self.assertEqual(
+            address.postal_code,
+            "17230-000",
+        )
+        self.assertEqual(
+            address.street,
+            "Rua Teste",
+        )
+
+    def test_address_update_reuses_same_record(self):
+        address = UserAddress.objects.create(
+            user=self.user,
+            postal_code="17230-000",
+            street="Rua Antiga",
+            number="10",
+            complement="",
+            neighborhood="Centro",
+            city="Itapui",
+            state="SP",
+            country="BR",
+        )
+
+        token = Token.objects.create(
+            user=self.user,
+        )
+        self.authenticate_with_token(token)
+
+        response = self.client.put(
+            reverse("accounts:me-address"),
+            {
+                "postal_code": "17230-000",
+                "street": "Rua Nova",
+                "number": "200",
+                "complement": "Fundos",
+                "neighborhood": "Centro",
+                "city": "Itapui",
+                "state": "SP",
+                "country": "BR",
+            },
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+
+        address.refresh_from_db()
+
+        self.assertEqual(
+            address.street,
+            "Rua Nova",
+        )
+        self.assertEqual(
+            address.number,
+            "200",
+        )
+        self.assertEqual(
+            UserAddress.objects.filter(
+                user=self.user,
+            ).count(),
+            1,
+        )
+
+    def test_address_does_not_expose_another_users_data(self):
+        other_user = User.objects.create_user(
+            email="other-address@example.com",
+            password="Geekz-Other-Password-2026!",
+        )
+
+        UserAddress.objects.create(
+            user=other_user,
+            postal_code="01001-000",
+            street="Rua Privada",
+            number="999",
+            complement="",
+            neighborhood="Centro",
+            city="Sao Paulo",
+            state="SP",
+            country="BR",
+        )
+
+        token = Token.objects.create(
+            user=self.user,
+        )
+        self.authenticate_with_token(token)
+
+        response = self.client.get(
+            reverse("accounts:me-address")
+        )
+
+        self.assertEqual(
+            response.status_code,
+            200,
+        )
+        self.assertIsNone(
+            response.data["address"]
         )

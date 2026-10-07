@@ -1,10 +1,15 @@
 import {
+  useEffect,
   useState,
   type FormEvent,
 } from 'react'
 
 import { useAuth } from '../auth/useAuth'
 import { ApiError } from '../services/api'
+import {
+  getCurrentUserAddress,
+  updateCurrentUserAddress,
+} from '../services/auth'
 
 
 export function MyAccountPage() {
@@ -24,6 +29,23 @@ export function MyAccountPage() {
   const [isSavingProfile, setIsSavingProfile] =
     useState(false)
 
+  const [postalCode, setPostalCode] = useState('')
+  const [street, setStreet] = useState('')
+  const [number, setNumber] = useState('')
+  const [complement, setComplement] = useState('')
+  const [neighborhood, setNeighborhood] = useState('')
+  const [city, setCity] = useState('')
+  const [state, setState] = useState('')
+
+  const [addressError, setAddressError] =
+    useState<string | null>(null)
+  const [addressSuccess, setAddressSuccess] =
+    useState<string | null>(null)
+  const [isLoadingAddress, setIsLoadingAddress] =
+    useState(() => Boolean(auth.token))
+  const [isSavingAddress, setIsSavingAddress] =
+    useState(false)
+
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [newPasswordConfirm, setNewPasswordConfirm] =
@@ -35,6 +57,59 @@ export function MyAccountPage() {
     useState<string | null>(null)
   const [isChangingPassword, setIsChangingPassword] =
     useState(false)
+
+  useEffect(() => {
+    if (!auth.token) {
+      return
+    }
+
+    const currentToken = auth.token
+    const controller = new AbortController()
+
+    async function loadAddress() {
+      try {
+        const response = await getCurrentUserAddress(
+          currentToken,
+          controller.signal,
+        )
+
+        if (!response.address) {
+          return
+        }
+
+        setPostalCode(response.address.postal_code)
+        setStreet(response.address.street)
+        setNumber(response.address.number)
+        setComplement(response.address.complement)
+        setNeighborhood(response.address.neighborhood)
+        setCity(response.address.city)
+        setState(response.address.state)
+      } catch (requestError) {
+        if (
+          requestError instanceof DOMException
+          && requestError.name === 'AbortError'
+        ) {
+          return
+        }
+
+        setAddressError(
+          requestError instanceof ApiError
+            ? requestError.message
+            : 'Não foi possível carregar seu endereço.',
+        )
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingAddress(false)
+        }
+      }
+    }
+
+    void loadAddress()
+
+    return () => {
+      controller.abort()
+    }
+  }, [auth.token])
 
   async function handleProfileSubmit(
     event: FormEvent<HTMLFormElement>,
@@ -53,6 +128,7 @@ export function MyAccountPage() {
 
       setFirstName(updatedUser.first_name)
       setLastName(updatedUser.last_name)
+
       setProfileSuccess(
         'Dados da conta atualizados com sucesso.',
       )
@@ -64,6 +140,58 @@ export function MyAccountPage() {
       )
     } finally {
       setIsSavingProfile(false)
+    }
+  }
+
+  async function handleAddressSubmit(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault()
+
+    if (!auth.token) {
+      return
+    }
+
+    try {
+      setIsSavingAddress(true)
+      setAddressError(null)
+      setAddressSuccess(null)
+
+      const response = await updateCurrentUserAddress(
+        auth.token,
+        {
+          postal_code: postalCode.trim(),
+          street: street.trim(),
+          number: number.trim(),
+          complement: complement.trim(),
+          neighborhood: neighborhood.trim(),
+          city: city.trim(),
+          state: state.trim().toUpperCase(),
+          country: 'BR',
+        },
+      )
+
+      if (response.address) {
+        setPostalCode(response.address.postal_code)
+        setStreet(response.address.street)
+        setNumber(response.address.number)
+        setComplement(response.address.complement)
+        setNeighborhood(response.address.neighborhood)
+        setCity(response.address.city)
+        setState(response.address.state)
+      }
+
+      setAddressSuccess(
+        'Endereço padrão salvo com sucesso.',
+      )
+    } catch (requestError) {
+      setAddressError(
+        requestError instanceof ApiError
+          ? requestError.message
+          : 'Não foi possível salvar seu endereço agora.',
+      )
+    } finally {
+      setIsSavingAddress(false)
     }
   }
 
@@ -203,6 +331,160 @@ export function MyAccountPage() {
                   : 'Salvar alterações'}
               </button>
             </form>
+          </section>
+
+          <section
+            className="account-section"
+            aria-labelledby="account-address-title"
+          >
+            <h2 id="account-address-title">
+              Endereço padrão
+            </h2>
+
+            <p className="account-section__intro">
+              Salve seu endereço principal de entrega para reutilizá-lo
+              em seus próximos pedidos.
+            </p>
+
+            {isLoadingAddress ? (
+              <p className="account-form__note">
+                Carregando endereço...
+              </p>
+            ) : (
+              <form
+                className="auth-form"
+                onSubmit={handleAddressSubmit}
+              >
+                <div className="auth-form__row">
+                  <label>
+                    CEP
+                    <input
+                      autoComplete="postal-code"
+                      maxLength={20}
+                      required
+                      type="text"
+                      value={postalCode}
+                      onChange={(event) => {
+                        setPostalCode(event.target.value)
+                      }}
+                    />
+                  </label>
+
+                  <label>
+                    Estado
+                    <input
+                      autoComplete="address-level1"
+                      maxLength={80}
+                      required
+                      type="text"
+                      value={state}
+                      onChange={(event) => {
+                        setState(event.target.value)
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <label>
+                  Rua
+                  <input
+                    autoComplete="address-line1"
+                    maxLength={180}
+                    required
+                    type="text"
+                    value={street}
+                    onChange={(event) => {
+                      setStreet(event.target.value)
+                    }}
+                  />
+                </label>
+
+                <div className="auth-form__row">
+                  <label>
+                    Número
+                    <input
+                      maxLength={30}
+                      required
+                      type="text"
+                      value={number}
+                      onChange={(event) => {
+                        setNumber(event.target.value)
+                      }}
+                    />
+                  </label>
+
+                  <label>
+                    Complemento
+                    <input
+                      autoComplete="address-line2"
+                      maxLength={120}
+                      type="text"
+                      value={complement}
+                      onChange={(event) => {
+                        setComplement(event.target.value)
+                      }}
+                    />
+                  </label>
+                </div>
+
+                <div className="auth-form__row">
+                  <label>
+                    Bairro
+                    <input
+                      maxLength={120}
+                      required
+                      type="text"
+                      value={neighborhood}
+                      onChange={(event) => {
+                        setNeighborhood(event.target.value)
+                      }}
+                    />
+                  </label>
+
+                  <label>
+                    Cidade
+                    <input
+                      autoComplete="address-level2"
+                      maxLength={120}
+                      required
+                      type="text"
+                      value={city}
+                      onChange={(event) => {
+                        setCity(event.target.value)
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {addressError && (
+                  <p
+                    className="auth-form__error"
+                    role="alert"
+                  >
+                    {addressError}
+                  </p>
+                )}
+
+                {addressSuccess && (
+                  <p
+                    className="account-form__success"
+                    role="status"
+                  >
+                    {addressSuccess}
+                  </p>
+                )}
+
+                <button
+                  className="button-primary"
+                  disabled={isSavingAddress}
+                  type="submit"
+                >
+                  {isSavingAddress
+                    ? 'Salvando endereço...'
+                    : 'Salvar endereço'}
+                </button>
+              </form>
+            )}
           </section>
 
           <section

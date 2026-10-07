@@ -4,6 +4,9 @@ from django.db import IntegrityError
 from rest_framework import serializers
 
 
+from .models import UserAddress
+
+
 User = get_user_model()
 
 
@@ -196,3 +199,31 @@ class PasswordChangeSerializer(serializers.Serializer):
         )
 
         return user
+
+class UserAddressSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserAddress
+        fields = (
+            "id",
+            "postal_code",
+            "street",
+            "number",
+            "complement",
+            "neighborhood",
+            "city",
+            "state",
+            "country",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = (
+            "id",
+            "created_at",
+            "updated_at",
+        )
+
+    def validate_state(self, value):
+        return value.strip().upper()
+
+    def validate_country(self, value):
+        return value.strip().upper()

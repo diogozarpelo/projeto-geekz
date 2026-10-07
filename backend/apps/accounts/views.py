@@ -7,10 +7,13 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .models import UserAddress
+
 from .serializers import (
     LoginSerializer,
     PasswordChangeSerializer,
     RegisterSerializer,
+    UserAddressSerializer,
     UserSerializer,
 )
 
@@ -163,4 +166,67 @@ class CurrentUserAPIView(APIView):
         return Response(
             UserSerializer(user).data,
             status=status.HTTP_200_OK,
+        )
+
+class CurrentUserAddressAPIView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request):
+        address = (
+            UserAddress.objects
+            .filter(user=request.user)
+            .first()
+        )
+
+        if address is None:
+            return Response(
+                {
+                    "address": None,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        return Response(
+            {
+                "address": UserAddressSerializer(
+                    address
+                ).data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @transaction.atomic
+    def put(self, request):
+        address = (
+            UserAddress.objects
+            .select_for_update()
+            .filter(user=request.user)
+            .first()
+        )
+
+        serializer = UserAddressSerializer(
+            address,
+            data=request.data,
+        )
+        serializer.is_valid(
+            raise_exception=True,
+        )
+
+        created = address is None
+
+        address = serializer.save(
+            user=request.user,
+        )
+
+        return Response(
+            {
+                "address": UserAddressSerializer(
+                    address
+                ).data,
+            },
+            status=(
+                status.HTTP_201_CREATED
+                if created
+                else status.HTTP_200_OK
+            ),
         )

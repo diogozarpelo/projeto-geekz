@@ -1256,6 +1256,28 @@ h1 {
   border-color: var(--accent);
 }
 
+.checkout-form__notice {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--background);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.checkout-form__save-address-group {
+  display: grid;
+  gap: 6px;
+}
+
+.checkout-form__save-address-note {
+  margin: 0 0 0 28px;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
 .checkout-form .checkout-form__save-address {
   display: flex;
   align-items: flex-start;

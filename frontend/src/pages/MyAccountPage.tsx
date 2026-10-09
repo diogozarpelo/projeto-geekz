@@ -347,11 +347,15 @@ export function MyAccountPage() {
             </p>
 
             {isLoadingAddress ? (
-              <p className="account-form__note">
+              <p
+                className="account-form__note"
+                role="status"
+              >
                 Carregando endereço...
               </p>
             ) : (
               <form
+                aria-busy={isSavingAddress}
                 className="auth-form"
                 onSubmit={handleAddressSubmit}
               >

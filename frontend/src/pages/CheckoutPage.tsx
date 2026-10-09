@@ -47,6 +47,8 @@ export function CheckoutPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [addressLoadWarning, setAddressLoadWarning] =
+    useState<string | null>(null)
 
   useEffect(() => {
     if (!auth.token) {
@@ -82,20 +84,25 @@ export function CheckoutPage() {
 
         setCart(cartResult.value)
 
-        if (
-          addressResult.status === 'fulfilled'
-          && addressResult.value.address
-        ) {
-          const address = addressResult.value.address
+        if (addressResult.status === 'fulfilled') {
+          if (addressResult.value.address) {
+            const address = addressResult.value.address
 
-          setPostalCode(address.postal_code)
-          setStreet(address.street)
-          setNumber(address.number)
-          setComplement(address.complement)
-          setNeighborhood(address.neighborhood)
-          setCity(address.city)
-          setState(address.state)
-          setHasSavedAddress(true)
+            setPostalCode(address.postal_code)
+            setStreet(address.street)
+            setNumber(address.number)
+            setComplement(address.complement)
+            setNeighborhood(address.neighborhood)
+            setCity(address.city)
+            setState(address.state)
+            setHasSavedAddress(true)
+          }
+
+          setAddressLoadWarning(null)
+        } else {
+          setAddressLoadWarning(
+            'Não foi possível carregar seu endereço padrão. Preencha o endereço manualmente para continuar.',
+          )
         }
 
         setError(null)
@@ -338,6 +345,7 @@ export function CheckoutPage() {
 
         <div className="checkout-layout">
           <form
+            aria-busy={isSubmitting}
             className="checkout-form"
             onSubmit={handleSubmit}
           >
@@ -397,6 +405,14 @@ export function CheckoutPage() {
                 </div>
               </div>
 
+                {addressLoadWarning && (
+                  <p
+                    className="checkout-form__notice"
+                    role="status"
+                  >
+                    {addressLoadWarning}
+                  </p>
+                )}
               <div className="checkout-form__fields">
                 <div className="checkout-form__row">
                   <label>
@@ -499,21 +515,29 @@ export function CheckoutPage() {
                   </label>
                 </div>
 
-                <label className="checkout-form__save-address">
-                  <input
-                    type="checkbox"
-                    checked={saveAsDefaultAddress}
-                    onChange={(event) => {
-                      setSaveAsDefaultAddress(event.target.checked)
-                    }}
-                  />
+                <div className="checkout-form__save-address-group">
+                  <label className="checkout-form__save-address">
+                    <input
+                      type="checkbox"
+                      checked={saveAsDefaultAddress}
+                      onChange={(event) => {
+                        setSaveAsDefaultAddress(event.target.checked)
+                      }}
+                    />
 
-                  <span>
+                    <span>
+                      {hasSavedAddress
+                        ? 'Atualizar meu endereço padrão com este endereço'
+                        : 'Salvar este endereço como padrão na minha conta'}
+                    </span>
+                  </label>
+
+                  <p className="checkout-form__save-address-note">
                     {hasSavedAddress
-                      ? 'Atualizar meu endereço padrão com este endereço'
-                      : 'Salvar este endereço como padrão na minha conta'}
-                  </span>
-                </label>
+                      ? 'Se deixar desmarcado, as alterações valerão apenas para este pedido.'
+                      : 'Se deixar desmarcado, o endereço será usado apenas neste pedido.'}
+                  </p>
+                </div>
               </div>
             </section>
 

@@ -70,6 +70,7 @@ export type CheckoutPayload = {
   shipping_city: string
   shipping_state: string
   shipping_country?: string
+  save_as_default_address?: boolean
   notes?: string
 }
 

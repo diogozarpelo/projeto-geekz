@@ -6,6 +6,7 @@ from django.test import override_settings
 from django.urls import reverse
 from rest_framework.test import APIClient, APITestCase
 
+from apps.accounts.models import UserAddress
 from apps.cart.models import Cart, CartItem
 from apps.catalog.models import Color, Product, ProductVariant, Size
 
@@ -181,6 +182,156 @@ class OrderAPITests(APITestCase):
             "179.80",
         )
 
+    def test_checkout_can_save_shipping_address_as_default(self):
+        self.authenticate()
+
+        response = self.client.post(
+            reverse("orders:checkout"),
+            self.checkout_payload(
+                save_as_default_address=True,
+                shipping_street="Rua Checkout",
+                shipping_number="456",
+                shipping_complement="Apto 10",
+            ),
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            201,
+        )
+
+        address = UserAddress.objects.get(
+            user=self.user,
+        )
+
+        self.assertEqual(
+            address.street,
+            "Rua Checkout",
+        )
+        self.assertEqual(
+            address.number,
+            "456",
+        )
+        self.assertEqual(
+            address.complement,
+            "Apto 10",
+        )
+        self.assertEqual(
+            address.postal_code,
+            response.data["shipping_postal_code"],
+        )
+        self.assertEqual(
+            address.city,
+            response.data["shipping_city"],
+        )
+        self.assertEqual(
+            address.state,
+            response.data["shipping_state"],
+        )
+
+    def test_checkout_can_update_existing_default_address(self):
+        address = UserAddress.objects.create(
+            user=self.user,
+            postal_code="00000-000",
+            street="Rua Antiga",
+            number="1",
+            complement="",
+            neighborhood="Bairro Antigo",
+            city="Cidade Antiga",
+            state="SP",
+            country="BR",
+        )
+
+        address_id = address.pk
+
+        self.authenticate()
+
+        response = self.client.post(
+            reverse("orders:checkout"),
+            self.checkout_payload(
+                save_as_default_address=True,
+                shipping_street="Rua Nova",
+                shipping_number="999",
+                shipping_neighborhood="Bairro Novo",
+                shipping_city="Cidade Nova",
+            ),
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            201,
+        )
+
+        address.refresh_from_db()
+
+        self.assertEqual(
+            address.pk,
+            address_id,
+        )
+        self.assertEqual(
+            address.street,
+            "Rua Nova",
+        )
+        self.assertEqual(
+            address.number,
+            "999",
+        )
+        self.assertEqual(
+            address.neighborhood,
+            "Bairro Novo",
+        )
+        self.assertEqual(
+            address.city,
+            "Cidade Nova",
+        )
+        self.assertEqual(
+            UserAddress.objects.filter(
+                user=self.user,
+            ).count(),
+            1,
+        )
+
+    def test_checkout_does_not_update_default_address_without_opt_in(self):
+        address = UserAddress.objects.create(
+            user=self.user,
+            postal_code="11111-111",
+            street="Rua Mantida",
+            number="10",
+            complement="Casa",
+            neighborhood="Centro",
+            city="Cidade Mantida",
+            state="SP",
+            country="BR",
+        )
+
+        self.authenticate()
+
+        response = self.client.post(
+            reverse("orders:checkout"),
+            self.checkout_payload(
+                shipping_street="Rua Somente Pedido",
+                shipping_number="777",
+            ),
+            format="json",
+        )
+
+        self.assertEqual(
+            response.status_code,
+            201,
+        )
+
+        address.refresh_from_db()
+
+        self.assertEqual(
+            address.street,
+            "Rua Mantida",
+        )
+        self.assertEqual(
+            address.number,
+            "10",
+        )
     def test_checkout_ignores_client_financial_amounts(self):
         self.authenticate()
 

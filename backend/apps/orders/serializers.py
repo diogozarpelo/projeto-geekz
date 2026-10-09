@@ -121,6 +121,11 @@ class CheckoutSerializer(serializers.Serializer):
         default="BR",
     )
 
+    save_as_default_address = serializers.BooleanField(
+        required=False,
+        default=False,
+    )
+
     notes = serializers.CharField(
         allow_blank=True,
         required=False,

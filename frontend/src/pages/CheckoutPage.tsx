@@ -41,6 +41,7 @@ export function CheckoutPage() {
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
   const [hasSavedAddress, setHasSavedAddress] = useState(false)
+  const [saveAsDefaultAddress, setSaveAsDefaultAddress] = useState(false)
   const [notes, setNotes] = useState('')
 
   const [isLoading, setIsLoading] = useState(true)
@@ -158,6 +159,7 @@ export function CheckoutPage() {
           shipping_city: city.trim(),
           shipping_state: state.trim().toUpperCase(),
           shipping_country: 'BR',
+          save_as_default_address: saveAsDefaultAddress,
           notes: notes.trim(),
         },
       )
@@ -496,6 +498,22 @@ export function CheckoutPage() {
                     />
                   </label>
                 </div>
+
+                <label className="checkout-form__save-address">
+                  <input
+                    type="checkbox"
+                    checked={saveAsDefaultAddress}
+                    onChange={(event) => {
+                      setSaveAsDefaultAddress(event.target.checked)
+                    }}
+                  />
+
+                  <span>
+                    {hasSavedAddress
+                      ? 'Atualizar meu endereço padrão com este endereço'
+                      : 'Salvar este endereço como padrão na minha conta'}
+                  </span>
+                </label>
               </div>
             </section>
 

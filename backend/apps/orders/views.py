@@ -1,6 +1,7 @@
 import hashlib
 
 from django.conf import settings
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, serializers, status
 from rest_framework.exceptions import APIException
@@ -13,6 +14,7 @@ from mercadopago.webhook import (
     WebhookSignatureValidator,
 )
 
+from apps.accounts.models import UserAddress
 from apps.cart.models import Cart
 from apps.core.pagination import OrderHistoryPagination
 
@@ -85,6 +87,7 @@ class PaymentCapabilitiesAPIView(APIView):
 class CheckoutAPIView(APIView):
     permission_classes = (IsAuthenticated,)
 
+    @transaction.atomic
     def post(self, request):
         serializer = CheckoutSerializer(
             data=request.data,
@@ -98,6 +101,10 @@ class CheckoutAPIView(APIView):
         )
         cart_public_id = checkout_data.pop(
             "cart_public_id"
+        )
+        save_as_default_address = checkout_data.pop(
+            "save_as_default_address",
+            False,
         )
 
         cart = get_object_or_404(
@@ -115,6 +122,21 @@ class CheckoutAPIView(APIView):
             raise serializers.ValidationError(
                 {"detail": str(exc)}
             ) from exc
+
+        if save_as_default_address:
+            UserAddress.objects.update_or_create(
+                user=request.user,
+                defaults={
+                    "postal_code": order.shipping_postal_code,
+                    "street": order.shipping_street,
+                    "number": order.shipping_number,
+                    "complement": order.shipping_complement,
+                    "neighborhood": order.shipping_neighborhood,
+                    "city": order.shipping_city,
+                    "state": order.shipping_state,
+                    "country": order.shipping_country,
+                },
+            )
 
         return Response(
             OrderSerializer(order).data,

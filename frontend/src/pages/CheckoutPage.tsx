@@ -7,6 +7,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../auth/useAuth'
 import { ApiError } from '../services/api'
+import { getCurrentUserAddress } from '../services/auth'
 import { getActiveCart } from '../services/cart'
 import { createOrderFromCart } from '../services/orders'
 import type { Cart } from '../types/cart'
@@ -39,6 +40,7 @@ export function CheckoutPage() {
   const [neighborhood, setNeighborhood] = useState('')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
+  const [hasSavedAddress, setHasSavedAddress] = useState(false)
   const [notes, setNotes] = useState('')
 
   const [isLoading, setIsLoading] = useState(true)
@@ -53,14 +55,48 @@ export function CheckoutPage() {
     const currentToken = auth.token
     const controller = new AbortController()
 
-    async function loadCart() {
+    async function loadCheckout() {
       try {
-        const response = await getActiveCart(
-          currentToken,
-          controller.signal,
-        )
+        const [
+          cartResult,
+          addressResult,
+        ] = await Promise.allSettled([
+          getActiveCart(
+            currentToken,
+            controller.signal,
+          ),
+          getCurrentUserAddress(
+            currentToken,
+            controller.signal,
+          ),
+        ])
 
-        setCart(response)
+        if (controller.signal.aborted) {
+          return
+        }
+
+        if (cartResult.status === 'rejected') {
+          throw cartResult.reason
+        }
+
+        setCart(cartResult.value)
+
+        if (
+          addressResult.status === 'fulfilled'
+          && addressResult.value.address
+        ) {
+          const address = addressResult.value.address
+
+          setPostalCode(address.postal_code)
+          setStreet(address.street)
+          setNumber(address.number)
+          setComplement(address.complement)
+          setNeighborhood(address.neighborhood)
+          setCity(address.city)
+          setState(address.state)
+          setHasSavedAddress(true)
+        }
+
         setError(null)
       } catch (requestError) {
         if (
@@ -82,7 +118,7 @@ export function CheckoutPage() {
       }
     }
 
-    void loadCart()
+    void loadCheckout()
 
     return () => {
       controller.abort()
@@ -352,7 +388,9 @@ export function CheckoutPage() {
                 <div>
                   <h2>Endereço de entrega</h2>
                   <p>
-                    Preencha o endereço que será associado ao pedido.
+                    {hasSavedAddress
+                      ? 'Seu endereço padrão foi carregado. Você pode alterá-lo para este pedido.'
+                      : 'Preencha o endereço que será associado ao pedido.'}
                   </p>
                 </div>
               </div>

@@ -287,6 +287,149 @@ export function HomePage() {
           )}
         </div>
       </section>
+
+      <section
+        className="home-benefits"
+        aria-labelledby="home-benefits-title"
+      >
+        <div className="container">
+          <div className="home-section__header">
+            <div>
+              <p className="eyebrow">
+                Experiência Geekz
+              </p>
+
+              <h2 id="home-benefits-title">
+                Feito para comprar sem complicação
+              </h2>
+
+              <p className="home-section__intro">
+                Do catálogo ao acompanhamento do pedido,
+                cada etapa foi pensada para ser simples
+                e direta.
+              </p>
+            </div>
+          </div>
+
+          <div className="home-benefit-grid">
+            <article className="home-benefit-card">
+              <span className="home-benefit-card__number">
+                01
+              </span>
+
+              <h3>Catálogo organizado</h3>
+
+              <p>
+                Explore produtos por categoria, pesquise
+                pelo que procura e confira disponibilidade
+                antes de comprar.
+              </p>
+            </article>
+
+            <article className="home-benefit-card">
+              <span className="home-benefit-card__number">
+                02
+              </span>
+
+              <h3>Checkout direto</h3>
+
+              <p>
+                Revise o carrinho, informe o endereço
+                de entrega e conclua o pedido em um fluxo
+                único.
+              </p>
+            </article>
+
+            <article className="home-benefit-card">
+              <span className="home-benefit-card__number">
+                03
+              </span>
+
+              <h3>Pedidos na sua conta</h3>
+
+              <p>
+                Acesse seu histórico, consulte os detalhes
+                de cada pedido e mantenha seus dados
+                organizados em um só lugar.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section
+        className="home-faq"
+        aria-labelledby="home-faq-title"
+      >
+        <div className="container">
+          <div className="home-section__header">
+            <div>
+              <p className="eyebrow">
+                Dúvidas frequentes
+              </p>
+
+              <h2 id="home-faq-title">
+                Antes de escolher sua próxima camiseta
+              </h2>
+
+              <p className="home-section__intro">
+                Algumas respostas rápidas sobre como
+                navegar e comprar na Geekz.
+              </p>
+            </div>
+          </div>
+
+          <div className="home-faq__list">
+            <details className="home-faq__item">
+              <summary>
+                Como encontro produtos de uma categoria?
+              </summary>
+
+              <p>
+                Você pode escolher uma categoria diretamente
+                na Home ou usar os filtros disponíveis
+                no catálogo.
+              </p>
+            </details>
+
+            <details className="home-faq__item">
+              <summary>
+                Como sei se um produto está disponível?
+              </summary>
+
+              <p>
+                Os produtos exibem a disponibilidade atual,
+                e a página de detalhes permite conferir
+                as variações disponíveis antes da compra.
+              </p>
+            </details>
+
+            <details className="home-faq__item">
+              <summary>
+                Posso acompanhar meus pedidos?
+              </summary>
+
+              <p>
+                Sim. Depois de entrar na sua conta,
+                a área Meus pedidos reúne o histórico
+                e os detalhes das compras realizadas.
+              </p>
+            </details>
+
+            <details className="home-faq__item">
+              <summary>
+                Posso salvar meu endereço para outra compra?
+              </summary>
+
+              <p>
+                Sim. Você pode manter um endereço padrão
+                na sua conta ou optar por salvá-lo durante
+                o checkout.
+              </p>
+            </details>
+          </div>
+        </div>
+      </section>
     </>
   )
 }

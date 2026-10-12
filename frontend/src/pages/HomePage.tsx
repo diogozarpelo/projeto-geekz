@@ -1,14 +1,28 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import { getCategories } from '../services/catalog'
-import type { Category } from '../types/catalog'
+import { ProductCard } from '../components/ui/ProductCard'
+import {
+  getCategories,
+  getProducts,
+} from '../services/catalog'
+import type {
+  Category,
+  Product,
+} from '../types/catalog'
 
 export function HomePage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [isLoadingCategories, setIsLoadingCategories] =
     useState(true)
   const [categoryError, setCategoryError] =
+    useState<string | null>(null)
+
+  const [featuredProducts, setFeaturedProducts] =
+    useState<Product[]>([])
+  const [isLoadingFeatured, setIsLoadingFeatured] =
+    useState(true)
+  const [featuredError, setFeaturedError] =
     useState<string | null>(null)
 
   useEffect(() => {
@@ -43,6 +57,48 @@ export function HomePage() {
     }
 
     void loadCategories()
+
+    return () => {
+      controller.abort()
+    }
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    async function loadFeaturedProducts() {
+      try {
+        setIsLoadingFeatured(true)
+        setFeaturedError(null)
+
+        const response = await getProducts(
+          {
+            featured: true,
+            pageSize: 3,
+          },
+          controller.signal,
+        )
+
+        setFeaturedProducts(response.results)
+      } catch (requestError) {
+        if (
+          requestError instanceof DOMException
+          && requestError.name === 'AbortError'
+        ) {
+          return
+        }
+
+        setFeaturedError(
+          'Não foi possível carregar os destaques agora.',
+        )
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoadingFeatured(false)
+        }
+      }
+    }
+
+    void loadFeaturedProducts()
 
     return () => {
       controller.abort()
@@ -156,6 +212,77 @@ export function HomePage() {
               <p className="home-status">
                 As categorias da loja aparecerão aqui
                 quando estiverem disponíveis.
+              </p>
+          )}
+        </div>
+      </section>
+
+      <section
+        className="home-featured"
+        aria-labelledby="home-featured-title"
+      >
+        <div className="container">
+          <div className="home-section__header">
+            <div>
+              <p className="eyebrow">
+                Seleção Geekz
+              </p>
+
+              <h2 id="home-featured-title">
+                Produtos em destaque
+              </h2>
+
+              <p className="home-section__intro">
+                Uma seleção especial de produtos para começar
+                a explorar o universo Geekz.
+              </p>
+            </div>
+
+            <Link
+              className="home-section__link"
+              to="/catalogo"
+            >
+              Ver todos os produtos
+            </Link>
+          </div>
+
+          {isLoadingFeatured && (
+            <p
+              className="home-status"
+              role="status"
+            >
+              Carregando destaques...
+            </p>
+          )}
+
+          {featuredError && (
+            <p
+              className="home-status home-status--error"
+              role="alert"
+            >
+              {featuredError}
+            </p>
+          )}
+
+          {!isLoadingFeatured
+            && !featuredError
+            && featuredProducts.length > 0 && (
+              <div className="product-grid">
+                {featuredProducts.map((product) => (
+                  <ProductCard
+                    key={product.slug}
+                    product={product}
+                  />
+                ))}
+              </div>
+          )}
+
+          {!isLoadingFeatured
+            && !featuredError
+            && featuredProducts.length === 0 && (
+              <p className="home-status">
+                Os produtos em destaque aparecerão aqui
+                quando forem selecionados no catálogo.
               </p>
           )}
         </div>

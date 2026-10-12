@@ -9,6 +9,7 @@ import { apiGet } from './api'
 export interface ProductListParams {
   category?: string
   search?: string
+  featured?: boolean
   page?: number
   pageSize?: number
 }
@@ -39,6 +40,13 @@ export function getProducts(
     searchParams.set(
       'search',
       params.search,
+    )
+  }
+
+  if (typeof params.featured === 'boolean') {
+    searchParams.set(
+      'featured',
+      String(params.featured),
     )
   }
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 import { ProductCard } from '../components/ui/ProductCard'
 import {
@@ -14,13 +15,17 @@ import type {
 const PAGE_SIZE = 12
 
 export function CatalogPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const requestedCategory =
+    searchParams.get('category')?.trim() ?? ''
+
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [productCount, setProductCount] = useState(0)
 
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('')
   const [page, setPage] = useState(1)
 
   const [isLoadingCategories, setIsLoadingCategories] = useState(true)
@@ -67,6 +72,7 @@ export function CatalogPage() {
     }
   }, [])
 
+
   useEffect(() => {
     const controller = new AbortController()
 
@@ -77,7 +83,7 @@ export function CatalogPage() {
 
         const response = await getProducts(
           {
-            category: category || undefined,
+            category: requestedCategory || undefined,
             search: search || undefined,
             page,
             pageSize: PAGE_SIZE,
@@ -111,8 +117,8 @@ export function CatalogPage() {
       controller.abort()
     }
   }, [
-    category,
     page,
+    requestedCategory,
     search,
   ])
 
@@ -133,19 +139,35 @@ export function CatalogPage() {
   function handleCategoryChange(
     categorySlug: string,
   ) {
-    setCategory(categorySlug)
+    const nextParams = new URLSearchParams(
+      searchParams,
+    )
+
+    if (categorySlug) {
+      nextParams.set('category', categorySlug)
+    } else {
+      nextParams.delete('category')
+    }
+
+    setSearchParams(nextParams)
     setPage(1)
   }
 
   function clearFilters() {
+    const nextParams = new URLSearchParams(
+      searchParams,
+    )
+
+    nextParams.delete('category')
+
+    setSearchParams(nextParams)
     setSearchInput('')
     setSearch('')
-    setCategory('')
     setPage(1)
   }
 
   const hasFilters = Boolean(
-    search || category,
+    search || requestedCategory,
   )
 
   return (
@@ -231,7 +253,7 @@ export function CatalogPage() {
             >
               <button
                 className={
-                  category === ''
+                  requestedCategory === ''
                     ? 'category-chip category-chip--active'
                     : 'category-chip'
                 }
@@ -246,7 +268,7 @@ export function CatalogPage() {
               {categories.map((item) => (
                 <button
                   className={
-                    category === item.slug
+                    requestedCategory === item.slug
                       ? 'category-chip category-chip--active'
                       : 'category-chip'
                   }

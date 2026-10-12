@@ -112,6 +112,143 @@ a {
   padding-block: 48px;
 }
 
+/* === Home === */
+
+.home-hero {
+  padding: 96px 0 80px;
+}
+
+.home-hero__content {
+  max-width: 980px;
+}
+
+.home-hero .page-intro {
+  max-width: 720px;
+}
+
+.home-categories {
+  padding: 0 0 96px;
+}
+
+.home-section__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+}
+
+.home-section__header h2 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  letter-spacing: -0.04em;
+}
+
+.home-section__intro {
+  max-width: 620px;
+  margin: 14px 0 0;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+.home-section__link {
+  flex: 0 0 auto;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.home-status {
+  margin: 32px 0 0;
+  color: var(--text-muted);
+}
+
+.home-status--error {
+  color: var(--text);
+}
+
+.home-category-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 36px;
+  gap: 20px;
+}
+
+.home-category-card {
+  display: flex;
+  min-height: 240px;
+  padding: 28px;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease;
+}
+
+.home-category-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+}
+
+.home-category-card__eyebrow {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.home-category-card strong {
+  margin-top: 20px;
+  font-size: 1.6rem;
+  letter-spacing: -0.03em;
+}
+
+.home-category-card p {
+  margin: 12px 0 0;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.home-category-card__action {
+  margin-top: auto;
+  padding-top: 24px;
+  font-weight: 800;
+}
+
+@media (max-width: 900px) {
+  .home-category-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .home-hero {
+    padding: 64px 0 56px;
+  }
+
+  .home-categories {
+    padding-bottom: 64px;
+  }
+
+  .home-section__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .home-category-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-category-card {
+    min-height: 210px;
+    padding: 24px 20px;
+  }
+}
+
 .eyebrow {
   margin: 0 0 12px;
   color: var(--text-muted);

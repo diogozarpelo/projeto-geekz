@@ -649,13 +649,31 @@ h1 {
 }
 
 .product-card {
+  display: flex;
   overflow: hidden;
+  min-width: 0;
+  flex-direction: column;
   border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.product-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+  box-shadow: 0 12px 30px rgb(0 0 0 / 8%);
+}
+
+.product-card--featured {
+  border-color: var(--accent);
 }
 
 .product-card__media {
+  position: relative;
   display: flex;
   aspect-ratio: 4 / 5;
   align-items: center;
@@ -665,10 +683,30 @@ h1 {
   text-decoration: none;
 }
 
+.product-card__badge {
+  position: absolute;
+  z-index: 1;
+  top: 14px;
+  left: 14px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: var(--text);
+  color: var(--surface);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .product-card__media img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 220ms ease;
+}
+
+.product-card:hover .product-card__media img {
+  transform: scale(1.025);
 }
 
 .product-card__placeholder {
@@ -679,7 +717,10 @@ h1 {
 }
 
 .product-card__body {
+  display: flex;
+  height: 100%;
   padding: 20px;
+  flex-direction: column;
 }
 
 .product-card__category {
@@ -712,7 +753,8 @@ h1 {
 
 .product-card__pricing {
   display: flex;
-  margin-top: 18px;
+  margin-top: auto;
+  padding-top: 18px;
   align-items: baseline;
   gap: 10px;
 }
@@ -735,6 +777,36 @@ h1 {
 
 .product-card__stock--out {
   color: var(--text-muted);
+}
+
+.product-card__action {
+  display: inline-flex;
+  margin-top: 16px;
+  align-self: flex-start;
+  color: var(--text);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.product-card__action::after {
+  margin-left: 6px;
+  content: '→';
+}
+
+.product-card__action:hover {
+  text-decoration: underline;
+}
+
+.product-card__media:focus-visible,
+.product-card h3 a:focus-visible,
+.product-card__action:focus-visible,
+.category-chip:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 3px;
+}
+
+.empty-state .button-secondary {
+  margin-top: 18px;
 }
 
 .catalog-pagination {

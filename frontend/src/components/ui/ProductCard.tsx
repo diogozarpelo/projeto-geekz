@@ -15,13 +15,23 @@ export function ProductCard({
     ?? product.images[0]
   )
 
+  const cardClassName = product.is_featured
+    ? 'product-card product-card--featured'
+    : 'product-card'
+
   return (
-    <article className="product-card">
+    <article className={cardClassName}>
       <Link
         className="product-card__media"
         to={`/produto/${product.slug}`}
         aria-label={`Ver ${product.name}`}
       >
+        {product.is_featured && (
+          <span className="product-card__badge">
+            Destaque
+          </span>
+        )}
+
         {primaryImage ? (
           <img
             src={primaryImage.image}
@@ -79,6 +89,13 @@ export function ProductCard({
             ? 'Em estoque'
             : 'Indisponível'}
         </p>
+
+        <Link
+          className="product-card__action"
+          to={`/produto/${product.slug}`}
+        >
+          Ver produto
+        </Link>
       </div>
     </article>
   )

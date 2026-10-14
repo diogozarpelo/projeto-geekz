@@ -232,7 +232,10 @@ export function CatalogPage() {
           </h2>
 
           {isLoadingCategories && (
-            <p className="catalog-status">
+            <p
+              className="catalog-status"
+              role="status"
+            >
               Carregando categorias...
             </p>
           )}
@@ -258,6 +261,7 @@ export function CatalogPage() {
                     : 'category-chip'
                 }
                 type="button"
+                aria-pressed={requestedCategory === ''}
                 onClick={() => {
                   handleCategoryChange('')
                 }}
@@ -274,6 +278,9 @@ export function CatalogPage() {
                   }
                   type="button"
                   key={item.slug}
+                  aria-pressed={
+                    requestedCategory === item.slug
+                  }
                   onClick={() => {
                     handleCategoryChange(item.slug)
                   }}
@@ -296,13 +303,19 @@ export function CatalogPage() {
 
             {!isLoadingProducts && !productError && (
               <span className="catalog-count">
-                {productCount} produto(s)
+                {productCount}{' '}
+                {productCount === 1
+                  ? 'produto'
+                  : 'produtos'}
               </span>
             )}
           </div>
 
           {isLoadingProducts && (
-            <p className="catalog-status">
+            <p
+              className="catalog-status"
+              role="status"
+            >
               Carregando produtos...
             </p>
           )}
@@ -333,6 +346,16 @@ export function CatalogPage() {
                       + 'eles aparecerão aqui automaticamente.'
                     )}
                 </p>
+
+                {hasFilters && (
+                  <button
+                    className="button-secondary"
+                    type="button"
+                    onClick={clearFilters}
+                  >
+                    Limpar filtros
+                  </button>
+                )}
               </div>
             )}
 

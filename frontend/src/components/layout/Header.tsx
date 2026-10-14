@@ -15,6 +15,10 @@ export function Header() {
 
   return (
     <header className="site-header">
+      <a className="skip-link" href="#main-content">
+        Pular para o conteúdo
+      </a>
+
       <div className="container site-header__content">
         <NavLink className="brand" to="/">
           Geekz

@@ -8,7 +8,11 @@ export function AppLayout() {
     <div className="app-shell">
       <Header />
 
-      <main className="main-content">
+      <main
+        id="main-content"
+        className="main-content"
+        tabIndex={-1}
+      >
         <Outlet />
       </main>
 

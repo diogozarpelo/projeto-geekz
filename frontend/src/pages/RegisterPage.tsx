@@ -4,15 +4,21 @@ import {
 } from 'react'
 import {
   Link,
+  useLocation,
   useNavigate,
 } from 'react-router-dom'
 
 import { useAuth } from '../auth/useAuth'
 import { ApiError } from '../services/api'
 
+type RegisterLocationState = {
+  from?: string
+}
+
 export function RegisterPage() {
   const auth = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -44,8 +50,12 @@ export function RegisterPage() {
         password_confirm: passwordConfirm,
       })
 
+      const state = (
+        location.state as RegisterLocationState | null
+      )
+
       navigate(
-        '/catalogo',
+        state?.from ?? '/catalogo',
         {
           replace: true,
         },
@@ -69,7 +79,7 @@ export function RegisterPage() {
           <h1>Criar conta</h1>
 
           <p className="page-intro">
-            Crie sua conta para usar o carrinho e acompanhar pedidos.
+            Crie sua conta para finalizar pedidos e acompanhar suas compras.
           </p>
 
           <form
@@ -163,7 +173,10 @@ export function RegisterPage() {
 
           <p className="auth-card__footer">
             Já tem conta?{' '}
-            <Link to="/login">
+            <Link
+              to="/login"
+              state={location.state}
+            >
               Entrar
             </Link>
           </p>

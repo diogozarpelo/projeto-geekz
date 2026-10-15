@@ -1,67 +1,88 @@
 import { apiRequest } from './api'
+import {
+  getStoredCartPublicId,
+  storeCartPublicId,
+} from './cartStorage'
 import type {
   AddCartItemPayload,
   Cart,
   UpdateCartItemPayload,
 } from '../types/cart'
 
-export function getActiveCart(
-  token: string,
+function rememberCart(cart: Cart) {
+  storeCartPublicId(cart.public_id)
+  return cart
+}
+
+export async function getActiveCart(
+  token?: string | null,
   signal?: AbortSignal,
 ) {
-  return apiRequest<Cart>(
+  const cart = await apiRequest<Cart>(
     '/cart/',
     {
       token,
+      cartPublicId: getStoredCartPublicId(),
       signal,
     },
   )
+
+  return rememberCart(cart)
 }
 
-export function addCartItem(
-  token: string,
+export async function addCartItem(
+  token: string | null | undefined,
   payload: AddCartItemPayload,
   signal?: AbortSignal,
 ) {
-  return apiRequest<Cart>(
+  const cart = await apiRequest<Cart>(
     '/cart/items/',
     {
       method: 'POST',
       token,
+      cartPublicId: getStoredCartPublicId(),
       body: payload,
       signal,
     },
   )
+
+  return rememberCart(cart)
 }
 
-export function updateCartItem(
-  token: string,
+export async function updateCartItem(
+  token: string | null | undefined,
   itemId: number,
   payload: UpdateCartItemPayload,
   signal?: AbortSignal,
 ) {
-  return apiRequest<Cart>(
+  const cart = await apiRequest<Cart>(
     `/cart/items/${itemId}/`,
     {
       method: 'PATCH',
       token,
+      cartPublicId: getStoredCartPublicId(),
       body: payload,
       signal,
     },
   )
+
+  return rememberCart(cart)
 }
 
-export function removeCartItem(
-  token: string,
+export async function removeCartItem(
+  token: string | null | undefined,
   itemId: number,
   signal?: AbortSignal,
 ) {
-  return apiRequest<Cart>(
+  const cart = await apiRequest<Cart>(
     `/cart/items/${itemId}/`,
     {
       method: 'DELETE',
       token,
+      cartPublicId: getStoredCartPublicId(),
       signal,
     },
   )
+
+  return rememberCart(cart)
 }

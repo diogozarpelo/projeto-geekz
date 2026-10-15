@@ -22,6 +22,7 @@ type ApiRequestOptions = {
   method?: ApiMethod
   signal?: AbortSignal
   token?: string | null
+  cartPublicId?: string | null
   body?: unknown
 }
 
@@ -157,6 +158,13 @@ export async function apiRequest<T>(
     headers.set(
       'Authorization',
       `Token ${options.token}`,
+    )
+  }
+
+  if (options.cartPublicId) {
+    headers.set(
+      'X-Geekz-Cart-Id',
+      options.cartPublicId,
     )
   }
 

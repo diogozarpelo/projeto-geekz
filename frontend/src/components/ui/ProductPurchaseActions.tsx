@@ -1,9 +1,5 @@
 import { useState } from 'react'
-import {
-  Link,
-  useLocation,
-  useNavigate,
-} from 'react-router-dom'
+import { Link } from 'react-router-dom'
 
 import { useAuth } from '../../auth/useAuth'
 import { ApiError } from '../../services/api'
@@ -18,8 +14,6 @@ export function ProductPurchaseActions({
   variant,
 }: ProductPurchaseActionsProps) {
   const auth = useAuth()
-  const location = useLocation()
-  const navigate = useNavigate()
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
@@ -31,19 +25,6 @@ export function ProductPurchaseActions({
       || !variant.is_in_stock
       || auth.isLoading
     ) {
-      return
-    }
-
-    if (!auth.token || !auth.isAuthenticated) {
-      navigate(
-        '/login',
-        {
-          state: {
-            from: location.pathname,
-          },
-        },
-      )
-
       return
     }
 

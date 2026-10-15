@@ -5,6 +5,7 @@ import {
 } from 'react'
 
 import { AuthContext } from './AuthContext'
+import { clearStoredCartPublicId } from '../services/cartStorage'
 import {
   clearStoredAuthToken,
   getStoredAuthToken,
@@ -134,6 +135,7 @@ export function AuthProvider({
     const currentToken = token
 
     clearStoredAuthToken()
+    clearStoredCartPublicId()
     setToken(null)
     setUser(null)
     setIsLoading(false)

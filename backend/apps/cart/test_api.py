@@ -106,18 +106,30 @@ class CartAPITests(APITestCase):
             format="json",
         )
 
-    def test_active_cart_requires_authentication(self):
+    def test_active_cart_is_available_to_anonymous_user(self):
         response = self.client.get(
             reverse("cart:active-cart")
         )
 
-        self.assertIn(
+        self.assertEqual(
             response.status_code,
-            (401, 403),
+            200,
         )
         self.assertEqual(
             Cart.objects.count(),
-            0,
+            1,
+        )
+
+        cart = Cart.objects.get(
+            public_id=response.data["public_id"]
+        )
+
+        self.assertIsNone(
+            cart.user
+        )
+        self.assertEqual(
+            cart.status,
+            Cart.Status.ACTIVE,
         )
 
     def test_active_cart_is_created_for_authenticated_user(self):

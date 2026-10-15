@@ -68,7 +68,7 @@ export function LoginPage() {
           <h1>Entrar</h1>
 
           <p className="page-intro">
-            Entre para acessar seu carrinho e finalizar pedidos.
+            Entre para finalizar seu pedido e acompanhar suas compras.
           </p>
 
           <form
@@ -123,7 +123,10 @@ export function LoginPage() {
 
           <p className="auth-card__footer">
             Ainda não tem conta?{' '}
-            <Link to="/cadastro">
+            <Link
+              to="/cadastro"
+              state={location.state}
+            >
               Criar conta
             </Link>
           </p>

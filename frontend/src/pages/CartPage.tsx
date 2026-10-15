@@ -28,7 +28,7 @@ export function CartPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!auth.token) {
+    if (auth.isLoading) {
       return
     }
 
@@ -69,7 +69,7 @@ export function CartPage() {
     return () => {
       controller.abort()
     }
-  }, [auth.token])
+  }, [auth.isLoading, auth.token])
 
   async function changeQuantity(
     item: CartItem,
@@ -78,8 +78,7 @@ export function CartPage() {
     const currentToken = auth.token
 
     if (
-      !currentToken
-      || quantity < 1
+      quantity < 1
       || quantity > item.available_stock
     ) {
       return
@@ -111,10 +110,6 @@ export function CartPage() {
 
   async function removeItem(itemId: number) {
     const currentToken = auth.token
-
-    if (!currentToken) {
-      return
-    }
 
     try {
       setBusyItemId(itemId)

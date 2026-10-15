@@ -32,11 +32,7 @@ export function AppRouter() {
 
           <Route
             path="/carrinho"
-            element={
-              <RequireAuth>
-                <CartPage />
-              </RequireAuth>
-            }
+            element={<CartPage />}
           />
 
           <Route

@@ -1,6 +1,6 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -16,9 +16,44 @@ from .services import (
     CartError,
     add_variant_to_cart,
     get_or_create_active_cart,
+    get_or_create_anonymous_cart,
+    merge_anonymous_cart_into_user,
     remove_cart_item,
     update_cart_item_quantity,
 )
+
+
+CART_ID_HEADER = "X-Geekz-Cart-Id"
+
+
+def _get_cart_public_id(request):
+    value = request.headers.get(
+        CART_ID_HEADER,
+        "",
+    ).strip()
+
+    return value or None
+
+
+def _get_cart_for_request(request):
+    cart_public_id = _get_cart_public_id(
+        request
+    )
+
+    if request.user.is_authenticated:
+        if cart_public_id:
+            return merge_anonymous_cart_into_user(
+                user=request.user,
+                anonymous_public_id=cart_public_id,
+            )
+
+        return get_or_create_active_cart(
+            user=request.user,
+        )
+
+    return get_or_create_anonymous_cart(
+        public_id=cart_public_id,
+    )
 
 
 def _load_cart_for_response(cart):
@@ -35,11 +70,11 @@ def _load_cart_for_response(cart):
 
 
 class ActiveCartAPIView(APIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
     def get(self, request):
-        cart = get_or_create_active_cart(
-            user=request.user,
+        cart = _get_cart_for_request(
+            request
         )
 
         cart = _load_cart_for_response(cart)
@@ -51,7 +86,7 @@ class ActiveCartAPIView(APIView):
 
 
 class CartItemCreateAPIView(APIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
     def post(self, request):
         serializer = AddCartItemSerializer(
@@ -61,8 +96,8 @@ class CartItemCreateAPIView(APIView):
             raise_exception=True,
         )
 
-        cart = get_or_create_active_cart(
-            user=request.user,
+        cart = _get_cart_for_request(
+            request
         )
 
         variant = get_object_or_404(
@@ -96,16 +131,20 @@ class CartItemCreateAPIView(APIView):
 
 
 class CartItemDetailAPIView(APIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = (AllowAny,)
 
     def _get_item(self, request, item_id):
+        cart = _get_cart_for_request(
+            request
+        )
+
         return get_object_or_404(
             CartItem.objects.select_related(
                 "cart",
                 "variant",
             ),
             pk=item_id,
-            cart__user=request.user,
+            cart=cart,
             cart__status=Cart.Status.ACTIVE,
         )
 

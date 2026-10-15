@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
@@ -75,6 +77,147 @@ def get_or_create_active_cart(*, user):
         user=locked_user,
         status=Cart.Status.ACTIVE,
     )
+
+
+def _parse_cart_public_id(public_id):
+    if not public_id:
+        return None
+
+    try:
+        return uuid.UUID(str(public_id))
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
+@transaction.atomic
+def get_or_create_anonymous_cart(*, public_id=None):
+    parsed_public_id = _parse_cart_public_id(
+        public_id
+    )
+
+    if parsed_public_id is not None:
+        cart = (
+            Cart.objects
+            .select_for_update()
+            .filter(
+                public_id=parsed_public_id,
+                user__isnull=True,
+                status=Cart.Status.ACTIVE,
+            )
+            .first()
+        )
+
+        if cart is not None:
+            return cart
+
+    return Cart.objects.create(
+        user=None,
+        status=Cart.Status.ACTIVE,
+    )
+
+
+@transaction.atomic
+def merge_anonymous_cart_into_user(
+    *,
+    user,
+    anonymous_public_id,
+):
+    target_cart = get_or_create_active_cart(
+        user=user
+    )
+
+    parsed_public_id = _parse_cart_public_id(
+        anonymous_public_id
+    )
+
+    if parsed_public_id is None:
+        return target_cart
+
+    anonymous_cart = (
+        Cart.objects
+        .select_for_update()
+        .filter(
+            public_id=parsed_public_id,
+            user__isnull=True,
+            status=Cart.Status.ACTIVE,
+        )
+        .first()
+    )
+
+    if anonymous_cart is None:
+        return target_cart
+
+    anonymous_items = list(
+        CartItem.objects
+        .select_for_update()
+        .select_related(
+            "variant",
+            "variant__product",
+            "variant__color",
+            "variant__size",
+        )
+        .filter(cart=anonymous_cart)
+    )
+
+    for anonymous_item in anonymous_items:
+        variant = anonymous_item.variant
+
+        try:
+            _ensure_purchasable_variant(
+                variant
+            )
+        except CartError:
+            continue
+
+        target_item = (
+            CartItem.objects
+            .select_for_update()
+            .filter(
+                cart=target_cart,
+                variant=variant,
+            )
+            .first()
+        )
+
+        current_quantity = (
+            target_item.quantity
+            if target_item is not None
+            else 0
+        )
+
+        target_quantity = min(
+            current_quantity
+            + anonymous_item.quantity,
+            variant.stock_quantity,
+        )
+
+        if target_quantity < 1:
+            continue
+
+        if target_item is None:
+            CartItem.objects.create(
+                cart=target_cart,
+                variant=variant,
+                quantity=target_quantity,
+            )
+        elif target_item.quantity != target_quantity:
+            target_item.quantity = target_quantity
+            target_item.save(
+                update_fields=(
+                    "quantity",
+                    "updated_at",
+                )
+            )
+
+    anonymous_cart.status = Cart.Status.ABANDONED
+    anonymous_cart.save(
+        update_fields=(
+            "status",
+            "updated_at",
+        )
+    )
+
+    return target_cart
 
 
 @transaction.atomic

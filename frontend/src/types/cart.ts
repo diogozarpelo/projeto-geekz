@@ -3,6 +3,7 @@ export type CartItem = {
   variant_id: number
   product_name: string
   product_slug: string
+  product_image: string | null
   sku: string
   color_name: string
   color_slug: string

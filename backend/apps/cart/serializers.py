@@ -16,6 +16,7 @@ class CartItemSerializer(serializers.ModelSerializer):
         source="variant.product.slug",
         read_only=True,
     )
+    product_image = serializers.SerializerMethodField()
     sku = serializers.CharField(
         source="variant.sku",
         read_only=True,
@@ -59,6 +60,78 @@ class CartItemSerializer(serializers.ModelSerializer):
         read_only=True,
     )
 
+    def get_product_image(self, obj):
+        images = list(
+            obj.variant.product.images.all()
+        )
+
+        matching_images = [
+            image
+            for image in images
+            if image.color_id == obj.variant.color_id
+        ]
+
+        generic_images = [
+            image
+            for image in images
+            if image.color_id is None
+        ]
+
+        selected_image = (
+            next(
+                (
+                    image
+                    for image in matching_images
+                    if image.is_primary
+                ),
+                None,
+            )
+            or (
+                matching_images[0]
+                if matching_images
+                else None
+            )
+            or next(
+                (
+                    image
+                    for image in generic_images
+                    if image.is_primary
+                ),
+                None,
+            )
+            or (
+                generic_images[0]
+                if generic_images
+                else None
+            )
+            or next(
+                (
+                    image
+                    for image in images
+                    if image.is_primary
+                ),
+                None,
+            )
+            or (
+                images[0]
+                if images
+                else None
+            )
+        )
+
+        if selected_image is None:
+            return None
+
+        image_url = selected_image.image.url
+        request = self.context.get("request")
+
+        if request is not None:
+            return request.build_absolute_uri(
+                image_url
+            )
+
+        return image_url
+
     class Meta:
         model = CartItem
         fields = (
@@ -66,6 +139,7 @@ class CartItemSerializer(serializers.ModelSerializer):
             "variant_id",
             "product_name",
             "product_slug",
+            "product_image",
             "sku",
             "color_name",
             "color_slug",

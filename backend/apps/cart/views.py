@@ -26,6 +26,7 @@ def _load_cart_for_response(cart):
         Cart.objects
         .prefetch_related(
             "items__variant__product",
+            "items__variant__product__images",
             "items__variant__color",
             "items__variant__size",
         )
@@ -44,7 +45,7 @@ class ActiveCartAPIView(APIView):
         cart = _load_cart_for_response(cart)
 
         return Response(
-            CartSerializer(cart).data,
+            CartSerializer(cart, context={"request": request}).data,
             status=status.HTTP_200_OK,
         )
 
@@ -89,7 +90,7 @@ class CartItemCreateAPIView(APIView):
         cart = _load_cart_for_response(cart)
 
         return Response(
-            CartSerializer(cart).data,
+            CartSerializer(cart, context={"request": request}).data,
             status=status.HTTP_200_OK,
         )
 
@@ -138,7 +139,7 @@ class CartItemDetailAPIView(APIView):
         )
 
         return Response(
-            CartSerializer(cart).data,
+            CartSerializer(cart, context={"request": request}).data,
             status=status.HTTP_200_OK,
         )
 
@@ -161,6 +162,6 @@ class CartItemDetailAPIView(APIView):
         cart = _load_cart_for_response(cart)
 
         return Response(
-            CartSerializer(cart).data,
+            CartSerializer(cart, context={"request": request}).data,
             status=status.HTTP_200_OK,
         )

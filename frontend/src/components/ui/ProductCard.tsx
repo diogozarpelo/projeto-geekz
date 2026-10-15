@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
 
+import { ImageWithFallback } from './ImageWithFallback'
+
 import type { Product } from '../../types/catalog'
 import { formatCurrencyBRL } from '../../utils/currency'
 
@@ -32,17 +34,12 @@ export function ProductCard({
           </span>
         )}
 
-        {primaryImage ? (
-          <img
-            src={primaryImage.image}
-            alt={primaryImage.alt_text || product.name}
-            loading="lazy"
-          />
-        ) : (
-          <span className="product-card__placeholder">
-            Geekz
-          </span>
-        )}
+        <ImageWithFallback
+          src={primaryImage?.image}
+          alt={primaryImage?.alt_text || product.name}
+          fallbackClassName="product-card__placeholder"
+          loading="lazy"
+        />
       </Link>
 
       <div className="product-card__body">

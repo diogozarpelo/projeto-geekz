@@ -4,6 +4,8 @@ import {
 } from 'react'
 import { Link } from 'react-router-dom'
 
+import { ImageWithFallback } from '../components/ui/ImageWithFallback'
+
 import { useAuth } from '../auth/useAuth'
 import { ApiError } from '../services/api'
 import {
@@ -218,9 +220,13 @@ export function CartPage() {
                     className="cart-item"
                     key={item.id}
                   >
-                    <div className="cart-item__placeholder">
-                      Geekz
-                    </div>
+                    <ImageWithFallback
+                      src={item.product_image}
+                      alt={item.product_name}
+                      imageClassName="cart-item__image"
+                      fallbackClassName="cart-item__placeholder"
+                      loading="lazy"
+                    />
 
                     <div className="cart-item__content">
                       <div className="cart-item__header">

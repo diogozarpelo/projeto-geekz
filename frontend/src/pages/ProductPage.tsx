@@ -9,6 +9,7 @@ import type {
   ProductColor,
   ProductSize,
 } from '../types/catalog'
+import { ImageWithFallback } from '../components/ui/ImageWithFallback'
 import { formatCurrencyBRL } from '../utils/currency'
 
 export function ProductPage() {
@@ -313,19 +314,15 @@ export function ProductPage() {
         <div className="product-detail">
           <div className="product-gallery">
             <div className="product-gallery__main">
-              {selectedImage ? (
-                <img
-                  src={selectedImage.image}
-                  alt={
-                    selectedImage.alt_text
-                    || product.name
-                  }
-                />
-              ) : (
-                <div className="product-gallery__placeholder">
-                  Geekz
-                </div>
-              )}
+              <ImageWithFallback
+                src={selectedImage?.image}
+                alt={
+                  selectedImage?.alt_text
+                  || product.name
+                }
+                fallbackClassName="product-gallery__placeholder"
+                loading="eager"
+              />
             </div>
 
             {galleryImages.length > 1 && (
@@ -352,12 +349,16 @@ export function ProductPage() {
                       setSelectedImageId(image.id)
                     }}
                   >
-                    <img
+                    <ImageWithFallback
                       src={image.image}
                       alt={
                         image.alt_text
                         || product.name
                       }
+                      fallbackClassName={
+                        'product-gallery__thumbnail-placeholder'
+                      }
+                      loading="lazy"
                     />
                   </button>
                 ))}

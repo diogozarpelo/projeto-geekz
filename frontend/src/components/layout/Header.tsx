@@ -20,8 +20,14 @@ export function Header() {
       </a>
 
       <div className="container site-header__content">
-        <NavLink className="brand" to="/">
-          Geekz
+        <NavLink
+          className="brand"
+          to="/"
+          aria-label="Geekz - página inicial"
+        >
+          <span className="brand__word">
+            geek<span className="brand__z">Z</span>
+          </span>
         </NavLink>
 
         <nav

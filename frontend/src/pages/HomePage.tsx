@@ -108,22 +108,47 @@ export function HomePage() {
   return (
     <>
       <section className="home-hero">
-        <div className="container home-hero__content">
-          <p className="eyebrow">Geekz</p>
+        <div className="container home-hero__layout">
+          <div className="home-hero__content">
+            <p className="eyebrow">Geekz</p>
 
-          <h1>Vista o universo que você curte.</h1>
+            <h1>Vista o universo que você curte.</h1>
 
-          <p className="page-intro">
-            Camisas inspiradas em games, animes, filmes e séries
-            para levar suas paixões para o dia a dia.
-          </p>
+            <p className="page-intro">
+              Camisas inspiradas em games, animes, filmes e séries
+              para levar suas paixões para o dia a dia.
+            </p>
 
-          <Link
-            className="button-primary"
-            to="/catalogo"
+            <Link
+              className="button-primary"
+              to="/catalogo"
+            >
+              Explorar catálogo
+            </Link>
+          </div>
+
+          <div
+            className="home-hero__visual"
+            aria-hidden="true"
           >
-            Explorar catálogo
-          </Link>
+            <div className="home-hero__visual-grid">
+              <span className="home-hero__visual-card">
+                Games
+              </span>
+
+              <span className="home-hero__visual-card">
+                Animes
+              </span>
+
+              <span className="home-hero__visual-card">
+                Filmes &amp; séries
+              </span>
+            </div>
+
+            <span className="home-hero__visual-mark">
+              geek<span>Z</span>
+            </span>
+          </div>
         </div>
       </section>
 
@@ -187,6 +212,16 @@ export function HomePage() {
                       }`
                     }
                   >
+                    <span
+                      className="home-category-card__visual"
+                      data-category={category.slug}
+                      aria-hidden="true"
+                    >
+                      <span>
+                        {category.name.charAt(0).toUpperCase()}
+                      </span>
+                    </span>
+
                     <span className="home-category-card__eyebrow">
                       Categoria
                     </span>

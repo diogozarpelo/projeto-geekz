@@ -412,7 +412,11 @@ export function ProductPage() {
                     selectedVariant.is_in_stock
                       ? (
                         `${selectedVariant.stock_quantity} `
-                        + 'unidade(s) em estoque'
+                        + (
+                          selectedVariant.stock_quantity === 1
+                            ? 'unidade em estoque'
+                            : 'unidades em estoque'
+                        )
                       )
                       : 'Variação indisponível'
                   )

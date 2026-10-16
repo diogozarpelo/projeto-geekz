@@ -341,9 +341,8 @@ export function CatalogPage() {
                   {hasFilters
                     ? 'Tente alterar ou limpar os filtros aplicados.'
                     : (
-                      'O catálogo já está conectado ao backend. '
-                      + 'Assim que produtos ativos forem cadastrados, '
-                      + 'eles aparecerão aqui automaticamente.'
+                      'Ainda não há produtos disponíveis no catálogo. '
+                      + 'Novidades aparecerão aqui em breve.'
                     )}
                 </p>
 

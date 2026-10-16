@@ -571,8 +571,8 @@ export function CheckoutPage() {
               type="submit"
             >
               {isSubmitting
-                ? 'Criando pedido...'
-                : 'Criar pedido'}
+                ? 'Confirmando pedido...'
+                : 'Confirmar pedido'}
             </button>
           </form>
 
@@ -620,8 +620,9 @@ export function CheckoutPage() {
             </div>
 
             <p className="checkout-summary__note">
-              Nesta etapa, frete e desconto permanecem em R$ 0,00 e
-              nenhum pagamento externo será iniciado.
+              Confira os produtos e seus dados antes de confirmar
+              o pedido. As próximas instruções serão exibidas
+              após a confirmação.
             </p>
 
             <Link

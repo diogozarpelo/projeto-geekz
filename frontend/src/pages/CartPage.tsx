@@ -305,8 +305,10 @@ export function CartPage() {
                       </div>
 
                       <p className="cart-item__stock">
-                        {item.available_stock}
-                        {' unidade(s) disponível(is)'}
+                        {item.available_stock}{' '}
+                        {item.available_stock === 1
+                          ? 'unidade disponível'
+                          : 'unidades disponíveis'}
                       </p>
                     </div>
                   </article>

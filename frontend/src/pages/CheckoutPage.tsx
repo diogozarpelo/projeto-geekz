@@ -210,8 +210,8 @@ export function CheckoutPage() {
           <h1>Pedido recebido</h1>
 
           <p className="page-intro">
-            Seu pedido foi criado com sucesso. O pagamento ainda não
-            foi iniciado nesta etapa do projeto.
+            Seu pedido foi criado com sucesso. Consulte os detalhes
+            abaixo para acompanhar os próximos passos.
           </p>
 
           <div className="checkout-success__card">

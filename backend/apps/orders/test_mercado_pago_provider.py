@@ -316,6 +316,51 @@ class MercadoPagoProviderTests(TestCase):
             "ORD-RETRY-001",
         )
 
+    def test_sdk_exception_is_logged_without_raw_exception_message(self):
+        sensitive_message = (
+            "provider failure containing SECRET-TOKEN-TEST"
+        )
+        sdk = FakeSDK(
+            [
+                RuntimeError(sensitive_message),
+            ]
+        )
+
+        provider = MercadoPagoProvider(
+            sdk=sdk,
+        )
+
+        with self.assertLogs(
+            "apps.orders.providers.mercado_pago",
+            level="ERROR",
+        ) as captured:
+            with self.assertRaisesMessage(
+                MercadoPagoError,
+                "Could not create Mercado Pago Pix order.",
+            ):
+                provider.create_pix_order(
+                    payment=self.payment,
+                )
+
+        log_output = "\n".join(captured.output)
+
+        self.assertIn(
+            "Mercado Pago SDK failed while creating a Pix order.",
+            log_output,
+        )
+        self.assertIn(
+            f"payment_id={self.payment.pk}",
+            log_output,
+        )
+        self.assertIn(
+            "exception_type=RuntimeError",
+            log_output,
+        )
+        self.assertNotIn(
+            sensitive_message,
+            log_output,
+        )
+
     def test_credit_card_payment_cannot_create_pix_order(self):
         card_payment = create_payment_attempt(
             order=self.order,

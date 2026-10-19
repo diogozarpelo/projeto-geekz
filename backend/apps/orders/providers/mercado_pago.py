@@ -1,3 +1,4 @@
+import logging
 import uuid
 from decimal import Decimal
 
@@ -6,6 +7,9 @@ from django.conf import settings
 from django.db import transaction
 
 from ..models import Payment
+
+
+logger = logging.getLogger(__name__)
 
 
 class MercadoPagoError(ValueError):
@@ -185,6 +189,11 @@ class MercadoPagoProvider:
                 provider_order_id
             )
         except Exception as exc:
+            logger.error(
+                "Mercado Pago SDK failed while retrieving an order. "
+                "exception_type=%s",
+                type(exc).__name__,
+            )
             raise MercadoPagoError(
                 "Could not retrieve Mercado Pago order."
             ) from exc
@@ -287,6 +296,12 @@ class MercadoPagoProvider:
                 request_options,
             )
         except Exception as exc:
+            logger.error(
+                "Mercado Pago SDK failed while creating a Pix order. "
+                "payment_id=%s exception_type=%s",
+                payment.pk,
+                type(exc).__name__,
+            )
             raise MercadoPagoError(
                 "Could not create Mercado Pago Pix order."
             ) from exc

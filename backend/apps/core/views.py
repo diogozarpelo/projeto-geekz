@@ -1,3 +1,18 @@
-from django.shortcuts import render
+from django.db import DatabaseError, connection
+from django.http import JsonResponse
 
-# Create your views here.
+
+def health_check(request):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+    except DatabaseError:
+        return JsonResponse(
+            {"status": "unavailable"},
+            status=503,
+        )
+
+    return JsonResponse(
+        {"status": "ok"},
+        status=200,
+    )

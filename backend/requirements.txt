@@ -4,3 +4,4 @@ django-environ==0.14.0
 psycopg[binary]==3.3.5
 Pillow==12.3.0
 mercadopago==3.6.0
+waitress==3.0.2
